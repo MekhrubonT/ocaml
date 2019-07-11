@@ -216,9 +216,8 @@ let report_variant_mismatch first second decl ppf err =
       (Ident.name s) (if b then second else first) decl
 
 let print_extension_constructor id ppf ext = match Printtyp.tree_of_extension_constructor id ext Types.Text_first with
-  | Osig_typext (ext1, _tat) ->
+  | Osig_typext (ext1, Oext_first) ->
     !Oprint.out_constr ppf (ext1.oext_name, ext1.oext_args, ext1.oext_ret_type)
-
   | _ -> ()
 
 
