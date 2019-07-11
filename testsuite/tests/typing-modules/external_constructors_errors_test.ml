@@ -40,9 +40,5 @@ Error: Signature mismatch:
          type t += private A
        is not included in
          type t += A
-       The constructors A are not equal:
-         private A
-       is not compatible with:
-         A
        A private type would be revealed.
 |}];;

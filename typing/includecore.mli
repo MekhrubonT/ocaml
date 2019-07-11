@@ -21,21 +21,21 @@ open Types
 exception Dont_match
 
 type label_mismatch =
-    LType
-  | LMutable
+    Type
+  | Mutable
 
 type record_mismatch =
-  | Label_type of label_declaration * label_declaration * label_mismatch
+    Label_type of label_declaration * label_declaration * label_mismatch
   | Field_names of int * Ident.t * Ident.t
   | Field_missing of bool * Ident.t
   | Record_representation of bool   (* true means second one is unboxed float *)
 
 type constructor_mismatch =
-    CType
-  | CArity
-  | CRecord of record_mismatch
-  | CKind
-  | CExplicit_return_type
+    Type
+  | Arity
+  | Record of record_mismatch
+  | Kind
+  | Explicit_return_type
 
 type variant_mismatch =
     Constructor_type of constructor_declaration * constructor_declaration * constructor_mismatch
@@ -43,12 +43,8 @@ type variant_mismatch =
   | Constructor_missing of bool * Ident.t
 
 type extension_constructor_mismatch =
-    EPrivacy
-  | EType of Ident.t *
-           extension_constructor *
-           extension_constructor *
-           constructor_mismatch
-
+    Privacy
+  | Type of Ident.t * extension_constructor * extension_constructor * constructor_mismatch
 
 type type_mismatch =
     Arity
