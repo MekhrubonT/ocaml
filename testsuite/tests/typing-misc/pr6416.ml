@@ -50,7 +50,7 @@ Error: Signature mismatch:
          type u = A of t/1
        is not included in
          type u = A of t/2
-       The constructors A are not equal:
+       Constructors do not match:
          A of t/1
        is not compatible with:
          A of t/2
@@ -117,7 +117,7 @@ Error: Signature mismatch:
          type t = A of T/1.t
        is not included in
          type t = A of T/2.t
-       The constructors A are not equal:
+       Constructors do not match:
          A of T/1.t
        is not compatible with:
          A of T/2.t

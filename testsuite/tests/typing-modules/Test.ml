@@ -95,7 +95,7 @@ Line 3, characters 23-33:
 3 | module type B = A with type t = u;; (* fail *)
                            ^^^^^^^^^^
 Error: This variant or record definition does not match that of type u
-       The constructors X are not equal:
+       Constructors do not match:
          X of bool
        is not compatible with:
          X of int
@@ -145,7 +145,7 @@ Error: Signature mismatch:
          type t += E of int
        is not included in
          type t += E
-       The constructors E are not equal:
+       Constructors do not match:
          E of int
        is not compatible with:
          E
@@ -166,7 +166,7 @@ Error: Signature mismatch:
          type t += E of int
        is not included in
          type t += E of char
-       The constructors E are not equal:
+       Constructors do not match:
          E of int
        is not compatible with:
          E of char
@@ -205,7 +205,7 @@ Error: Signature mismatch:
          type t += E of int
        is not included in
          type t += E of { x : int; }
-       The constructors E are not equal:
+       Constructors do not match:
          E of int
        is not compatible with:
          E of { x : int; }

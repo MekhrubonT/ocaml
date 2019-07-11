@@ -40,7 +40,7 @@ Error: Signature mismatch:
            f0 : unit * unit * unit * int * unit * unit * unit;
            f1 : unit * unit * unit * int * unit * unit * unit;
          }
-       The fields f0 are not equal:
+       Fields do not match:
          f0 : unit * unit * unit * float * unit * unit * unit;
        is not compatible with:
          f0 : unit * unit * unit * int * unit * unit * unit;
@@ -86,7 +86,7 @@ Error: Signature mismatch:
            mutable f0 : unit * unit * unit * int * unit * unit * unit;
            f1 : unit * unit * unit * int * unit * unit * unit;
          }
-       The fields f0 are not equal:
+       Fields do not match:
          f0 : unit * unit * unit * float * unit * unit * unit;
        is not compatible with:
          mutable f0 : unit * unit * unit * int * unit * unit * unit;

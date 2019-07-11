@@ -27,7 +27,7 @@ Line 1, characters 16-53:
 1 | module rec M1 : S with type x = int and type y = bool = M1;;
                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Error: This variant or record definition does not match that of type M1.t
-       The constructors E are not equal:
+       Constructors do not match:
          E of M1.x
        is not compatible with:
          E of M1.y
@@ -79,7 +79,7 @@ Line 1, characters 16-53:
 1 | module rec M1 : S with type x = int and type y = bool = M1;;
                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Error: This variant or record definition does not match that of type M1.t
-       The constructors E are not equal:
+       Constructors do not match:
          E of (M1.x, M1.x) eq
        is not compatible with:
          E of (M1.x, M1.y) eq

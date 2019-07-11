@@ -19,7 +19,7 @@ Error: Signature mismatch:
          type t += F of int
        is not included in
          type t += F
-       The constructors F are not equal:
+       Constructors do not match:
          F of int
        is not compatible with:
          F

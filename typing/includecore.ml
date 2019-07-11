@@ -176,8 +176,7 @@ let report_record_mismatch first second decl ppf err =
   let pr fmt = Format.fprintf ppf fmt in
   match err with
     Label_type (l1, l2, err) ->
-    pr "@[<hv>The fields %s are not equal:@;<1 2>%a@ is not compatible with:@;<1 2>%a@ %a"
-      (Ident.name l1.ld_id)
+    pr "@[<hv>Fields do not match:@;<1 2>%a@ is not compatible with:@;<1 2>%a@ %a"
       !Oprint.out_label (Printtyp.tree_of_label l1)
       !Oprint.out_label (Printtyp.tree_of_label l2)
       report_label_mismatch err
@@ -205,8 +204,7 @@ let report_variant_mismatch first second decl ppf err =
   let pr fmt = Format.fprintf ppf fmt in
   match err with
     Constructor_type (c1, c2, err) ->
-    pr "@[<hv>The constructors %s are not equal:@;<1 2>%a@ is not compatible with:@;<1 2>%a@ %a"
-      (Ident.name c1.cd_id)
+    pr "@[<hv>Constructors do not match:@;<1 2>%a@ is not compatible with:@;<1 2>%a@ %a"
       !Oprint.out_constr (Printtyp.tree_of_constructor c1)
       !Oprint.out_constr (Printtyp.tree_of_constructor c2)
       (report_constructor_mismatch first second decl) err
@@ -228,8 +226,7 @@ let report_extension_constructor_mismatch first second decl ppf err =
   match (err : extension_constructor_mismatch) with
     Privacy -> pr "A private type would be revealed."
   | Type (id, ext1, ext2, err) ->
-    pr "@[<hv>The constructors %s are not equal:@;<1 2>%a@ is not compatible with:@;<1 2>%a@ %a@]"
-      (Ident.name id)
+    pr "@[<hv>Constructors do not match:@;<1 2>%a@ is not compatible with:@;<1 2>%a@ %a@]"
       (print_extension_constructor id) ext1
       (print_extension_constructor id) ext2
       (report_constructor_mismatch first second decl) err

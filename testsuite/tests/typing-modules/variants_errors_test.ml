@@ -24,7 +24,7 @@ Error: Signature mismatch:
          type t = Foo of float * int
        is not included in
          type t = Foo of int * int
-       The constructors Foo are not equal:
+       Constructors do not match:
          Foo of float * int
        is not compatible with:
          Foo of int * int
@@ -53,7 +53,7 @@ Error: Signature mismatch:
          type t = Foo of float
        is not included in
          type t = Foo of int * int
-       The constructors Foo are not equal:
+       Constructors do not match:
          Foo of float
        is not compatible with:
          Foo of int * int
@@ -82,11 +82,11 @@ Error: Signature mismatch:
          type t = Foo of { x : float; y : int; }
        is not included in
          type t = Foo of { x : int; y : int; }
-       The constructors Foo are not equal:
+       Constructors do not match:
          Foo of { x : float; y : int; }
        is not compatible with:
          Foo of { x : int; y : int; }
-       The fields x are not equal:
+       Fields do not match:
          x : float;
        is not compatible with:
          x : int;
@@ -115,7 +115,7 @@ Error: Signature mismatch:
          type t = Foo of float
        is not included in
          type t = Foo of { x : int; y : int; }
-       The constructors Foo are not equal:
+       Constructors do not match:
          Foo of float
        is not compatible with:
          Foo of { x : int; y : int; }
@@ -144,7 +144,7 @@ Error: Signature mismatch:
          type 'a t = Foo of 'a
        is not included in
          type 'a t = Foo : int -> int t
-       The constructors Foo are not equal:
+       Constructors do not match:
          Foo of 'a
        is not compatible with:
          Foo : int -> int t
