@@ -32,7 +32,6 @@ type record_mismatch =
 
 type constructor_mismatch =
     CType
-  | CPrivacy
   | CArity
   | CRecord of record_mismatch
   | CKind
@@ -43,6 +42,14 @@ type variant_mismatch =
   | Constructor_names of int * Ident.t * Ident.t
   | Constructor_missing of bool * Ident.t
 
+type extension_constructor_mismatch =
+    EPrivacy
+  | EType of Ident.t *
+           extension_constructor *
+           extension_constructor *
+           constructor_mismatch
+
+
 type type_mismatch =
     Arity
   | Privacy
@@ -52,10 +59,7 @@ type type_mismatch =
   | Variance
   | Record_error of record_mismatch
   | Constructor_error of variant_mismatch
-  | Extension_constructor_error of Ident.t *
-                                   extension_constructor *
-                                   extension_constructor *
-                                   constructor_mismatch
+  | Extension_constructor_error of extension_constructor_mismatch
   | Unboxed_representation of bool  (* true means second one is unboxed *)
   | Immediate of immediacy * immediacy
 

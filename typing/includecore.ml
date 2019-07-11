@@ -134,7 +134,6 @@ type record_mismatch =
 
 type constructor_mismatch =
     CType
-  | CPrivacy
   | CArity
   | CRecord of record_mismatch
   | CKind
@@ -147,6 +146,13 @@ type variant_mismatch =
   | Constructor_names of int * Ident.t * Ident.t
   | Constructor_missing of bool * Ident.t
 
+type extension_constructor_mismatch =
+    EPrivacy
+  | EType of Ident.t
+             * Types.extension_constructor
+             * Types.extension_constructor
+             * constructor_mismatch
+
 type type_mismatch =
     Arity
   | Privacy
@@ -156,10 +162,7 @@ type type_mismatch =
   | Variance
   | Record_error of record_mismatch
   | Constructor_error of variant_mismatch
-  | Extension_constructor_error of Ident.t
-                                   * Types.extension_constructor
-                                   * Types.extension_constructor
-                                   * constructor_mismatch
+  | Extension_constructor_error of extension_constructor_mismatch
   | Unboxed_representation of bool  (* true means second one is unboxed *)
   | Immediate of immediacy * immediacy
 
@@ -179,13 +182,13 @@ let report_record_mismatch first second decl ppf err =
       !Oprint.out_label (Printtyp.tree_of_label l2)
       report_label_mismatch err
   | Field_names (n, name1, name2) ->
-    pr "Fields number %i have different names, %s and %s."
+    pr "@[<hv>Fields number %i have different names, %s and %s.@]"
       n (Ident.name name1) (Ident.name name2)
   | Field_missing (b, s) ->
-    pr "The field %s is only present in %s %s."
+    pr "@[<hv>The field %s is only present in %s %s.@]"
       (Ident.name s) (if b then second else first) decl
   | Record_representation b ->
-    pr "Their internal representations differ:@ %s %s %s."
+    pr "@[<hv>Their internal representations differ:@ %s %s %s.@]"
       (if b then second else first) decl
       "uses unboxed float representation"
 
@@ -193,7 +196,6 @@ let report_constructor_mismatch first second decl ppf err =
   let pr fmt  = Format.fprintf ppf fmt in
   match err with
   | CType -> pr "The types are not equal."
-  | CPrivacy -> pr "A private type would be revealed."
   | CArity -> pr "They have different arities."
   | CRecord err -> report_record_mismatch first second decl ppf err
   | CKind -> pr "One uses inline records and the other doesn't."
@@ -217,8 +219,20 @@ let report_variant_mismatch first second decl ppf err =
 
 let print_extension_constructor id ppf ext = match Printtyp.tree_of_extension_constructor id ext Types.Text_first with
   | Osig_typext (ext1, Oext_first) ->
-    !Oprint.out_constr ppf (ext1.oext_name, ext1.oext_args, ext1.oext_ret_type)
+      Format.fprintf ppf "@[<hv>%a@]"
+    !Oprint.out_constr (ext1.oext_name, ext1.oext_args, ext1.oext_ret_type)
   | _ -> ()
+
+let report_extension_constructor_mismatch first second decl ppf err =
+  let pr fmt = Format.fprintf ppf fmt in
+  match err with
+  | EPrivacy -> pr "A private type would be revealed."
+  | EType (id, ext1, ext2, err) ->
+    pr "@[<hv>The constructors %s are not equal:@;<1 2>%a@ is not compatible with:@;<1 2>%a@ %a@]"
+      (Ident.name id)
+      (print_extension_constructor id) ext1
+      (print_extension_constructor id) ext2
+      (report_constructor_mismatch first second decl) err
 
 
 let report_type_mismatch0 first second decl ppf err =
@@ -232,12 +246,7 @@ let report_type_mismatch0 first second decl ppf err =
   | Variance -> pr "Their variances do not agree."
   | Record_error err -> report_record_mismatch first second decl ppf err
   | Constructor_error err -> report_variant_mismatch first second decl ppf err
-  | Extension_constructor_error (id, ext1, ext2, err) ->
-    pr "@[<hv>The constructors %s are not equal:@;<1 2>%a@ is not compatible with:@;<1 2>%a@ %a"
-      (Ident.name id)
-      (print_extension_constructor id) ext1
-      (print_extension_constructor id) ext2
-      (report_constructor_mismatch first second decl) err
+  | Extension_constructor_error err -> report_extension_constructor_mismatch first second decl ppf err
   | Unboxed_representation b ->
       pr "Their internal representations differ:@ %s %s %s."
          (if b then second else first) decl
@@ -447,12 +456,12 @@ let extension_constructors ~loc env ~mark id ext1 ext2 =
   in
   if not (Ctype.equal env true (ty1 :: ext1.ext_type_params)
                                (ty2 :: ext2.ext_type_params))
-  then Some (Extension_constructor_error (id, ext1, ext2, CType))
+  then Some (Extension_constructor_error (EType (id, ext1, ext2, CType)))
   else match compare_constructors ~loc env
                ext1.ext_type_params ext2.ext_type_params
                ext1.ext_ret_type ext2.ext_ret_type
                ext1.ext_args ext2.ext_args with
-    Some r -> Some (Extension_constructor_error (id, ext1, ext2, r))
+    Some r -> Some (Extension_constructor_error (EType (id, ext1, ext2, r)))
   | None -> match ext1.ext_private, ext2.ext_private with
-      Private, Public -> Some (Extension_constructor_error (id, ext1, ext2, CPrivacy))
+      Private, Public -> Some (Extension_constructor_error EPrivacy)
     | _, _ -> None
