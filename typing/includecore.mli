@@ -20,6 +20,29 @@ open Types
 
 exception Dont_match
 
+type label_mismatch =
+    LType
+  | LMutable
+
+type record_mismatch =
+  | Label_type of label_declaration * label_declaration * label_mismatch
+  | Field_names of int * Ident.t * Ident.t
+  | Field_missing of bool * Ident.t
+  | Record_representation of bool   (* true means second one is unboxed float *)
+
+type constructor_mismatch =
+    CType
+  | CPrivacy
+  | CArity
+  | CRecord of record_mismatch
+  | CKind
+  | CExplicit_return_type
+
+type variant_mismatch =
+    Constructor_type of constructor_declaration * constructor_declaration * constructor_mismatch
+  | Constructor_names of int * Ident.t * Ident.t
+  | Constructor_missing of bool * Ident.t
+
 type type_mismatch =
     Arity
   | Privacy
@@ -27,13 +50,13 @@ type type_mismatch =
   | Constraint
   | Manifest
   | Variance
-  | Field_type of Ident.t
-  | Field_mutable of Ident.t
-  | Field_arity of Ident.t
-  | Field_names of int * Ident.t * Ident.t
-  | Field_missing of bool * Ident.t
-  | Record_representation of bool
-  | Unboxed_representation of bool
+  | Record_error of record_mismatch
+  | Constructor_error of variant_mismatch
+  | Extension_constructor_error of Ident.t *
+                                   extension_constructor *
+                                   extension_constructor *
+                                   constructor_mismatch
+  | Unboxed_representation of bool  (* true means second one is unboxed *)
   | Immediate of immediacy * immediacy
 
 val value_descriptions:

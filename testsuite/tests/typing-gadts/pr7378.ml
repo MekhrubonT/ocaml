@@ -19,7 +19,11 @@ Line 2, characters 2-54:
 2 | ..type t = X.t =
 3 |     | A : 'a * 'b * ('b -> unit) -> t
 Error: This variant or record definition does not match that of type X.t
-       The types for field A are not equal.
+       The constructors A are not equal:
+         A : 'a * 'b * ('a -> unit) -> X.t
+       is not compatible with:
+         A : 'a * 'b * ('b -> unit) -> X.t
+       The types are not equal.
 |}]
 
 (* would segfault
