@@ -608,9 +608,9 @@ let include_err ppf = function
         "is not included in"
         !Oprint.out_sig_item
         (Printtyp.tree_of_type_declaration id d2 Trec_first)
-        show_locs (d1.type_loc, d2.type_loc)
         (Includecore.report_type_mismatch
            "the first" "the second" "declaration") err
+        show_locs (d1.type_loc, d2.type_loc)
   | Extension_constructors(id, x1, x2, err) ->
       fprintf ppf "@[<v>@[<hv>%s:@;<1 2>%a@ %s@;<1 2>%a@]%a%a@]"
         "Extension declarations do not match"
@@ -619,9 +619,9 @@ let include_err ppf = function
         "is not included in"
         !Oprint.out_sig_item
         (Printtyp.tree_of_extension_constructor id x2 Text_first)
-        show_locs (x1.ext_loc, x2.ext_loc)
         (Includecore.report_type_mismatch
            "the first" "the second" "declaration") err
+        show_locs (x1.ext_loc, x2.ext_loc)
   | Module_types(mty1, mty2)->
       fprintf ppf
        "@[<hv 2>Modules do not match:@ \
@@ -731,7 +731,6 @@ let report_error ppf errs =
   Printtyp.Conflicts.reset();
   fprintf ppf "@[<v>%a%a%t@]" print_errs errs include_err err
     Printtyp.Conflicts.print
-
 (* We could do a better job to split the individual error items
    as sub-messages of the main interface mismatch on the whole unit. *)
 let () =
