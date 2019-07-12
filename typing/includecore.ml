@@ -128,8 +128,8 @@ type label_mismatch =
 
 type record_mismatch =
     Label_type of Types.label_declaration * Types.label_declaration * label_mismatch
-  | Field_names of int * Ident.t * Ident.t
-  | Field_missing of bool * Ident.t
+  | Label_names of int * Ident.t * Ident.t
+  | Label_missing of bool * Ident.t
   | Record_representation of bool   (* true means second one is unboxed float *)
 
 type constructor_mismatch =
@@ -180,10 +180,10 @@ let report_record_mismatch first second decl ppf err =
       !Oprint.out_label (Printtyp.tree_of_label l1)
       !Oprint.out_label (Printtyp.tree_of_label l2)
       report_label_mismatch err
-  | Field_names (n, name1, name2) ->
+  | Label_names (n, name1, name2) ->
     pr "@[<hv>Fields number %i have different names, %s and %s.@]"
       n (Ident.name name1) (Ident.name name2)
-  | Field_missing (b, s) ->
+  | Label_missing (b, s) ->
     pr "@[<hv>The field %s is only present in %s %s.@]"
       (Ident.name s) (if b then second else first) decl
   | Record_representation b ->
@@ -313,11 +313,11 @@ and compare_records ~loc env params1 params2 n
     (labels2 : Types.label_declaration list) =
   match labels1, labels2 with
     [], []           -> None
-  | [], l::_ -> Some (Field_missing (true, l.Types.ld_id))
-  | l::_, [] -> Some (Field_missing (false, l.Types.ld_id))
+  | [], l::_ -> Some (Label_missing (true, l.Types.ld_id))
+  | l::_, [] -> Some (Label_missing (false, l.Types.ld_id))
   | ld1::rem1, ld2::rem2 ->
       if Ident.name ld1.ld_id <> Ident.name ld2.ld_id
-      then Some (Field_names (n, ld1.ld_id, ld2.ld_id))
+      then Some (Label_names (n, ld1.ld_id, ld2.ld_id))
       else if ld1.ld_mutable <> ld2.ld_mutable then Some (Label_type (ld1, ld2, Mutable))
       else begin
         Builtin_attributes.check_deprecated_mutable_inclusion
