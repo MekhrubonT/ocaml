@@ -182,7 +182,8 @@ let report_record_mismatch first second decl ppf err =
   match err with
   | Label_mismatch (l1, l2, err) ->
     pr
-      "@[<hv>Fields do not match:@;<1 2>%a@ is not compatible with:@;<1 2>%a@ %a"
+      "@[<hv>Fields do not match:@;<1 2>%a@ is not compatible with:\
+       @;<1 2>%a@ %a"
       Printtyp.label l1
       Printtyp.label l2
       (report_label_mismatch first second) err
@@ -261,7 +262,8 @@ let report_type_mismatch0 first second decl ppf err =
          "uses unboxed representation"
   | Immediate (a, b) ->
       match a, b with
-      | Unknown, _ -> pr "%s is not an immediate type." (String.capitalize_ascii first)
+      | Unknown, _ -> pr "%s is not an immediate type."
+                        (String.capitalize_ascii first)
       | Always_on_64bits, _ ->
           pr "%s is only an immediate type on 64 bit plateforms while %s \
               is always an immediate type."
@@ -323,6 +325,25 @@ and compare_variants ~loc env params1 params2 n
         | None -> compare_variants ~loc env params1 params2 (n+1) rem1 rem2
       end
 
+and compare_labels ~loc env params1 params2
+      (ld1 : Types.label_declaration)
+      (ld2 : Types.label_declaration) =
+      if ld1.ld_mutable <> ld2.ld_mutable
+      then Some (Mutable (ld2.ld_mutable = Asttypes.Mutable))
+      else begin
+        Builtin_attributes.check_deprecated_mutable_inclusion
+          ~def:ld1.ld_loc
+          ~use:ld2.ld_loc
+          loc
+          ld1.ld_attributes ld2.ld_attributes
+          (Ident.name ld1.ld_id);
+        if Ctype.equal env true (ld1.ld_type::params1)(ld2.ld_type::params2)
+        then None
+        else
+          Some (Type : label_mismatch)
+      end
+
+
 
 and compare_records ~loc env params1 params2 n
     (labels1 : Types.label_declaration list)
@@ -334,25 +355,14 @@ and compare_records ~loc env params1 params2 n
   | ld1::rem1, ld2::rem2 ->
       if Ident.name ld1.ld_id <> Ident.name ld2.ld_id
         then Some (Label_names (n, ld1.ld_id, ld2.ld_id))
-      else if ld1.ld_mutable <> ld2.ld_mutable
-        then Some (Label_mismatch
-                   (ld1, ld2, Mutable (ld2.ld_mutable = Asttypes.Mutable)))
-      else begin
-        Builtin_attributes.check_deprecated_mutable_inclusion
-          ~def:ld1.ld_loc
-          ~use:ld2.ld_loc
-          loc
-          ld1.ld_attributes ld2.ld_attributes
-          (Ident.name ld1.ld_id);
-        if Ctype.equal env true (ld1.ld_type::params1)(ld2.ld_type::params2)
-        then (* add arguments to the parameters, cf. PR#7378 *)
-          compare_records ~loc env
-            (ld1.ld_type::params1) (ld2.ld_type::params2)
-            (n+1)
-            rem1 rem2
-        else
-          Some (Label_mismatch (ld1, ld2, Type))
-      end
+      else
+        match compare_labels ~loc env params1 params2 ld1 ld2 with
+        | Some r -> Some (Label_mismatch (ld1, ld2, r))
+        (* add arguments to the parameters, cf. PR#7378 *)
+        | None -> compare_records ~loc env
+                    (ld1.ld_type::params1) (ld2.ld_type::params2)
+                    (n+1)
+                    rem1 rem2
 
 let compare_records_with_representation ~loc env params1 params2 n
       labels1 labels2 rep1 rep2
