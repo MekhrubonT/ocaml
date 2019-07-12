@@ -112,7 +112,7 @@ Error: Signature mismatch:
          type t = { f1 : unit; }
        is not included in
          type t = { f0 : unit; }
-       Fields number 1 have different names, f1 and f0.
+       1st fields have different names, f1 and f0.
 |}];;
 
 module M4 : sig
