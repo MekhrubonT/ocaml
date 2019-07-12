@@ -1265,7 +1265,8 @@ let tree_of_extension_constructor id ext es =
     List.map (fun ty -> type_param (tree_of_typexp false ty)) ty_params
   in
   let name = Ident.name id in
-  let args, ret = extension_constructor_args_and_ret_type_subtree ext.ext_args ext.ext_ret_type in
+  let args, ret = extension_constructor_args_and_ret_type_subtree
+                    ext.ext_args ext.ext_ret_type in
   let ext =
     { oext_name = name;
       oext_type_name = ty_name;
@@ -1287,7 +1288,8 @@ let extension_constructor id ppf ext =
 
 let extension_only_constructor id ppf ext =
   let name = Ident.name id in
-  let args, ret = extension_constructor_args_and_ret_type_subtree ext.ext_args ext.ext_ret_type in
+  let args, ret = extension_constructor_args_and_ret_type_subtree
+                    ext.ext_args ext.ext_ret_type in
   Format.fprintf ppf "@[<hv>%a@]"
     !Oprint.out_constr (name, args, ret)
 

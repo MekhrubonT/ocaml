@@ -38,13 +38,18 @@ type constructor_mismatch =
   | Explicit_return_type of bool
 
 type variant_mismatch =
-  | Constructor_mismatch of constructor_declaration * constructor_declaration * constructor_mismatch
+  | Constructor_mismatch of constructor_declaration
+                            * constructor_declaration
+                            * constructor_mismatch
   | Constructor_names of int * Ident.t * Ident.t
   | Constructor_missing of bool * Ident.t
 
 type extension_constructor_mismatch =
   | Privacy
-  | Constructor_mismatch of Ident.t * extension_constructor * extension_constructor * constructor_mismatch
+  | Constructor_mismatch of Ident.t
+                            * extension_constructor
+                            * extension_constructor
+                            * constructor_mismatch
 
 type type_mismatch =
   | Arity
@@ -71,7 +76,8 @@ val type_declarations:
 
 val extension_constructors:
   loc:Location.t -> Env.t -> mark:bool -> Ident.t ->
-  extension_constructor -> extension_constructor -> extension_constructor_mismatch option
+  extension_constructor -> extension_constructor ->
+  extension_constructor_mismatch option
 (*
 val class_types:
         Env.t -> class_type -> class_type -> bool
