@@ -71,7 +71,7 @@ val type_declarations:
 
 val extension_constructors:
   loc:Location.t -> Env.t -> mark:bool -> Ident.t ->
-  extension_constructor -> extension_constructor -> type_mismatch option
+  extension_constructor -> extension_constructor -> extension_constructor_mismatch option
 (*
 val class_types:
         Env.t -> class_type -> class_type -> bool
@@ -79,3 +79,5 @@ val class_types:
 
 val report_type_mismatch:
     string -> string -> string -> Format.formatter -> type_mismatch -> unit
+val report_extension_constructor_mismatch: string -> string -> string ->
+  Format.formatter -> extension_constructor_mismatch -> unit

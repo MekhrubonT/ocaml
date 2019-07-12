@@ -224,7 +224,7 @@ let print_extension_constructor id ppf ext =
   match Printtyp.tree_of_extension_constructor id ext Types.Text_first with
   | Osig_typext (ext1, Oext_first) ->
       Format.fprintf ppf "@[<hv>%a@]"
-    !Oprint.out_constr (ext1.oext_name, ext1.oext_args, ext1.oext_ret_type)
+        !Oprint.out_constr (ext1.oext_name, ext1.oext_args, ext1.oext_ret_type)
   | _ -> ()
 
 let report_extension_constructor_mismatch first second decl ppf err =
@@ -469,12 +469,12 @@ let extension_constructors ~loc env ~mark id ext1 ext2 =
   in
   if not (Ctype.equal env true (ty1 :: ext1.ext_type_params)
                                (ty2 :: ext2.ext_type_params))
-  then Some (Extension_constructor_mismatch (Constructor_mismatch (id, ext1, ext2, Type)))
+  then Some (Constructor_mismatch (id, ext1, ext2, Type))
   else match compare_constructors ~loc env
                ext1.ext_type_params ext2.ext_type_params
                ext1.ext_ret_type ext2.ext_ret_type
                ext1.ext_args ext2.ext_args with
-    Some r -> Some (Extension_constructor_mismatch (Constructor_mismatch (id, ext1, ext2, r)))
+  | Some r -> Some (Constructor_mismatch (id, ext1, ext2, r))
   | None -> match ext1.ext_private, ext2.ext_private with
-      Private, Public -> Some (Extension_constructor_mismatch Privacy)
+    | Private, Public -> Some (Privacy:extension_constructor_mismatch)
     | _, _ -> None
