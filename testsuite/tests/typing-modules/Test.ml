@@ -209,5 +209,5 @@ Error: Signature mismatch:
          E of int
        is not compatible with:
          E of { x : int; }
-       One uses inline records and the other doesn't.
+       The second uses inline records and the first doesn't.
 |}];;

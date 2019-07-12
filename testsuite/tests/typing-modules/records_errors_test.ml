@@ -90,7 +90,7 @@ Error: Signature mismatch:
          f0 : unit * unit * unit * float * unit * unit * unit;
        is not compatible with:
          mutable f0 : unit * unit * unit * int * unit * unit * unit;
-       The mutability of field is different.
+       The second is mutable and the first is not.
 |}];;
 
 module M3 : sig

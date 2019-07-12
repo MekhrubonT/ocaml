@@ -124,7 +124,7 @@ let type_manifest env ty1 params1 ty2 params2 priv2 =
 
 type label_mismatch =
   | Type
-  | Mutable
+  | Mutable of bool
 
 type record_mismatch =
   | Label_mismatch of Types.label_declaration
@@ -138,8 +138,8 @@ type constructor_mismatch =
   | Type
   | Arity
   | Record of record_mismatch
-  | Kind
-  | Explicit_return_type
+  | Kind of bool
+  | Explicit_return_type of bool
 
 type variant_mismatch =
   | Constructor_mismatch of Types.constructor_declaration
@@ -168,11 +168,14 @@ type type_mismatch =
   | Unboxed_representation of bool  (* true means second one is unboxed *)
   | Immediate of immediacy * immediacy
 
-let report_label_mismatch ppf err =
+let report_label_mismatch first second ppf err =
   let pr fmt = Format.fprintf ppf fmt in
   match (err : label_mismatch) with
   | Type -> pr "The types are not equal."
-  | Mutable -> pr "The mutability of field is different."
+  | Mutable is_second ->
+      pr "%s is mutable and %s is not."
+        (String.capitalize_ascii (if is_second then second else first))
+        (if is_second then first else second)
 
 let report_record_mismatch first second decl ppf err =
   let pr fmt = Format.fprintf ppf fmt in
@@ -182,7 +185,7 @@ let report_record_mismatch first second decl ppf err =
       "@[<hv>Fields do not match:@;<1 2>%a@ is not compatible with:@;<1 2>%a@ %a"
       !Oprint.out_label (Printtyp.tree_of_label l1)
       !Oprint.out_label (Printtyp.tree_of_label l2)
-      report_label_mismatch err
+      (report_label_mismatch first second) err
   | Label_names (n, name1, name2) ->
     pr "@[<hv>Fields number %i have different names, %s and %s.@]"
       n (Ident.name name1) (Ident.name name2)
@@ -200,8 +203,14 @@ let report_constructor_mismatch first second decl ppf err =
   | Type -> pr "The types are not equal."
   | Arity -> pr "They have different arities."
   | Record err -> report_record_mismatch first second decl ppf err
-  | Kind -> pr "One uses inline records and the other doesn't."
-  | Explicit_return_type -> pr "One has explicit return type and other doesn't."
+  | Kind is_second ->
+      pr "%s uses inline records and %s doesn't."
+        (String.capitalize_ascii (if is_second then second else first))
+        (if is_second then first else second)
+  | Explicit_return_type is_second ->
+      pr "%s has explicit return type and %s doesn't."
+        (String.capitalize_ascii (if is_second then second else first))
+        (if is_second then first else second)
 
 let report_variant_mismatch first second decl ppf err =
   let pr fmt = Format.fprintf ppf fmt in
@@ -258,11 +267,11 @@ let report_type_mismatch0 first second decl ppf err =
          "uses unboxed representation"
   | Immediate (a, b) ->
       match a, b with
-      | Unknown, _ -> pr "%s is not an immediate type." first
+      | Unknown, _ -> pr "%s is not an immediate type." (String.capitalize_ascii first)
       | Always_on_64bits, _ ->
           pr "%s is only an immediate type on 64 bit plateforms while %s \
               is always an immediate type."
-            first second
+            (String.capitalize_ascii first) second
       | _ -> assert false
 
 let report_type_mismatch first second decl ppf err =
@@ -282,7 +291,8 @@ let rec compare_constructor_arguments ~loc env params1 params2 arg1 arg2 =
       Option.map
         (fun rec_err -> Record rec_err)
         (compare_records env ~loc params1 params2 0 l1 l2)
-  | _ -> Some (Kind : constructor_mismatch)
+  | Types.Cstr_record _, _ -> Some (Kind false : constructor_mismatch)
+  | _, Types.Cstr_record _ -> Some (Kind true : constructor_mismatch)
 
 and compare_constructors ~loc env params1 params2 res1 res2 args1 args2 =
   match res1, res2 with
@@ -290,8 +300,8 @@ and compare_constructors ~loc env params1 params2 res1 res2 args1 args2 =
       if Ctype.equal env true [r1] [r2] then
         compare_constructor_arguments ~loc env [r1] [r2] args1 args2
     else Some (Type : constructor_mismatch)
-  | Some _, None | None, Some _ ->
-      Some (Explicit_return_type : constructor_mismatch)
+  | Some _, None -> Some (Explicit_return_type false : constructor_mismatch)
+  | None, Some _ -> Some (Explicit_return_type true : constructor_mismatch)
   | None, None ->
       compare_constructor_arguments ~loc env params1 params2 args1 args2
 
@@ -329,9 +339,10 @@ and compare_records ~loc env params1 params2 n
   | l::_, [] -> Some (Label_missing (false, l.Types.ld_id))
   | ld1::rem1, ld2::rem2 ->
       if Ident.name ld1.ld_id <> Ident.name ld2.ld_id
-      then Some (Label_names (n, ld1.ld_id, ld2.ld_id))
+        then Some (Label_names (n, ld1.ld_id, ld2.ld_id))
       else if ld1.ld_mutable <> ld2.ld_mutable
-        then Some (Label_mismatch (ld1, ld2, Mutable))
+        then Some (Label_mismatch
+                   (ld1, ld2, Mutable (ld2.ld_mutable = Asttypes.Mutable)))
       else begin
         Builtin_attributes.check_deprecated_mutable_inclusion
           ~def:ld1.ld_loc

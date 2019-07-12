@@ -22,7 +22,7 @@ exception Dont_match
 
 type label_mismatch =
   | Type
-  | Mutable
+  | Mutable of bool
 
 type record_mismatch =
   | Label_mismatch of label_declaration * label_declaration * label_mismatch
@@ -34,8 +34,8 @@ type constructor_mismatch =
   | Type
   | Arity
   | Record of record_mismatch
-  | Kind
-  | Explicit_return_type
+  | Kind of bool
+  | Explicit_return_type of bool
 
 type variant_mismatch =
   | Constructor_mismatch of constructor_declaration * constructor_declaration * constructor_mismatch

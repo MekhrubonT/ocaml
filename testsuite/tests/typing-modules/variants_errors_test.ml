@@ -119,7 +119,7 @@ Error: Signature mismatch:
          Foo of float
        is not compatible with:
          Foo of { x : int; y : int; }
-       One uses inline records and the other doesn't.
+       The second uses inline records and the first doesn't.
 |}];;
 
 module M5 : sig
@@ -148,5 +148,5 @@ Error: Signature mismatch:
          Foo of 'a
        is not compatible with:
          Foo : int -> int t
-       One has explicit return type and other doesn't.
+       The second has explicit return type and the first doesn't.
 |}];;
