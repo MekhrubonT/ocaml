@@ -130,7 +130,7 @@ type record_mismatch =
     Label_type of Types.label_declaration * Types.label_declaration * label_mismatch
   | Label_names of int * Ident.t * Ident.t
   | Label_missing of bool * Ident.t
-  | Record_representation of bool   (* true means second one is unboxed float *)
+  | Representation of bool   (* true means second one is unboxed float *)
 
 type constructor_mismatch =
     Type
@@ -186,7 +186,7 @@ let report_record_mismatch first second decl ppf err =
   | Label_missing (b, s) ->
     pr "@[<hv>The field %s is only present in %s %s.@]"
       (Ident.name s) (if b then second else first) decl
-  | Record_representation b ->
+  | Representation b ->
     pr "@[<hv>Their internal representations differ:@ %s %s %s.@]"
       (if b then second else first) decl
       "uses unboxed float representation"
@@ -398,7 +398,7 @@ let type_declarations ?(equality = false) ~loc env ~mark name decl1 path decl2 =
             decl2.type_params 1 labels1 labels2)
         in
         if err <> None || rep1 = rep2 then err else
-        Some (Record_error (Record_representation (rep2 = Record_float)))
+        Some (Record_error (Representation (rep2 = Record_float)))
     | (Type_open, Type_open) -> None
     | (_, _) -> Some Kind
   in
