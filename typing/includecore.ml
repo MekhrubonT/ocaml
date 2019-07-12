@@ -35,7 +35,7 @@ let value_descriptions ~loc env name
     name;
   if Ctype.moregeneral env true vd1.val_type vd2.val_type then begin
     match (vd1.val_kind, vd2.val_kind) with
-        (Val_prim p1, Val_prim p2) ->
+      | (Val_prim p1, Val_prim p2) ->
           if p1 = p2 then Tcoerce_none else raise Dont_match
       | (Val_prim p, _) ->
           let pc = {pc_desc = p; pc_type = vd2.Types.val_type;
@@ -59,7 +59,7 @@ let private_flags decl1 decl2 =
 
 let is_absrow env ty =
   match ty.desc with
-    Tconstr(Pident _, _, _) ->
+  | Tconstr(Pident _, _, _) ->
       begin match Ctype.expand_head env ty with
         {desc=Tobject _|Tvariant _} -> true
       | _ -> false
@@ -69,7 +69,7 @@ let is_absrow env ty =
 let type_manifest env ty1 params1 ty2 params2 priv2 =
   let ty1' = Ctype.expand_head env ty1 and ty2' = Ctype.expand_head env ty2 in
   match ty1'.desc, ty2'.desc with
-    Tvariant row1, Tvariant row2 when is_absrow env (Btype.row_more row2) ->
+  | Tvariant row1, Tvariant row2 when is_absrow env (Btype.row_more row2) ->
       let row1 = Btype.row_repr row1 and row2 = Btype.row_repr row2 in
       Ctype.equal env true (ty1::params1) (row2.row_more::params2) &&
       begin match row1.row_more with
@@ -123,60 +123,63 @@ let type_manifest env ty1 params1 ty2 params2 priv2 =
 (* Inclusion between type declarations *)
 
 type label_mismatch =
-    Type
+  | Type
   | Mutable
 
 type record_mismatch =
-    Label_type of Types.label_declaration * Types.label_declaration * label_mismatch
+  | Label_mismatch of Types.label_declaration
+                      * Types.label_declaration
+                      * label_mismatch
   | Label_names of int * Ident.t * Ident.t
   | Label_missing of bool * Ident.t
   | Representation of bool   (* true means second one is unboxed float *)
 
 type constructor_mismatch =
-    Type
+  | Type
   | Arity
   | Record of record_mismatch
   | Kind
   | Explicit_return_type
 
 type variant_mismatch =
-    Constructor_type of Types.constructor_declaration
+  | Constructor_mismatch of Types.constructor_declaration
                         * Types.constructor_declaration
                         * constructor_mismatch
   | Constructor_names of int * Ident.t * Ident.t
   | Constructor_missing of bool * Ident.t
 
 type extension_constructor_mismatch =
-    Privacy
-  | Type of Ident.t
+  | Privacy
+  | Constructor_mismatch of Ident.t
              * Types.extension_constructor
              * Types.extension_constructor
              * constructor_mismatch
 
 type type_mismatch =
-    Arity
+  | Arity
   | Privacy
   | Kind
   | Constraint
   | Manifest
   | Variance
-  | Record_error of record_mismatch
-  | Constructor_error of variant_mismatch
-  | Extension_constructor_error of extension_constructor_mismatch
+  | Record_mismatch of record_mismatch
+  | Variant_mismatch of variant_mismatch
+  | Extension_constructor_mismatch of extension_constructor_mismatch
   | Unboxed_representation of bool  (* true means second one is unboxed *)
   | Immediate of immediacy * immediacy
 
 let report_label_mismatch ppf err =
   let pr fmt = Format.fprintf ppf fmt in
   match (err : label_mismatch) with
-    Type -> pr "The types are not equal."
+  | Type -> pr "The types are not equal."
   | Mutable -> pr "The mutability of field is different."
 
 let report_record_mismatch first second decl ppf err =
   let pr fmt = Format.fprintf ppf fmt in
   match err with
-    Label_type (l1, l2, err) ->
-    pr "@[<hv>Fields do not match:@;<1 2>%a@ is not compatible with:@;<1 2>%a@ %a"
+  | Label_mismatch (l1, l2, err) ->
+    pr
+      "@[<hv>Fields do not match:@;<1 2>%a@ is not compatible with:@;<1 2>%a@ %a"
       !Oprint.out_label (Printtyp.tree_of_label l1)
       !Oprint.out_label (Printtyp.tree_of_label l2)
       report_label_mismatch err
@@ -194,7 +197,7 @@ let report_record_mismatch first second decl ppf err =
 let report_constructor_mismatch first second decl ppf err =
   let pr fmt  = Format.fprintf ppf fmt in
   match (err : constructor_mismatch) with
-    Type -> pr "The types are not equal."
+  | Type -> pr "The types are not equal."
   | Arity -> pr "They have different arities."
   | Record err -> report_record_mismatch first second decl ppf err
   | Kind -> pr "One uses inline records and the other doesn't."
@@ -202,21 +205,24 @@ let report_constructor_mismatch first second decl ppf err =
 
 let report_variant_mismatch first second decl ppf err =
   let pr fmt = Format.fprintf ppf fmt in
-  match err with
-    Constructor_type (c1, c2, err) ->
-    pr "@[<hv>Constructors do not match:@;<1 2>%a@ is not compatible with:@;<1 2>%a@ %a"
-      !Oprint.out_constr (Printtyp.tree_of_constructor c1)
-      !Oprint.out_constr (Printtyp.tree_of_constructor c2)
-      (report_constructor_mismatch first second decl) err
+  match (err : variant_mismatch) with
+  | Constructor_mismatch (c1, c2, err) ->
+      pr
+        "@[<hv>Constructors do not match:@;<1 2>%a@ is not compatible with:\
+         @;<1 2>%a@ %a"
+        !Oprint.out_constr (Printtyp.tree_of_constructor c1)
+        !Oprint.out_constr (Printtyp.tree_of_constructor c2)
+        (report_constructor_mismatch first second decl) err
   | Constructor_names (n, name1, name2) ->
-    pr "Constructors number %i have different names, %s and %s/"
-      n (Ident.name name1) (Ident.name name2)
+      pr "Constructors number %i have different names, %s and %s/"
+        n (Ident.name name1) (Ident.name name2)
   | Constructor_missing (b, s) ->
-    pr "The constructor %s is only present in %s %s."
-      (Ident.name s) (if b then second else first) decl
+      pr "The constructor %s is only present in %s %s."
+        (Ident.name s) (if b then second else first) decl
 
-let print_extension_constructor id ppf ext = match Printtyp.tree_of_extension_constructor id ext Types.Text_first with
-    Osig_typext (ext1, Oext_first) ->
+let print_extension_constructor id ppf ext =
+  match Printtyp.tree_of_extension_constructor id ext Types.Text_first with
+  | Osig_typext (ext1, Oext_first) ->
       Format.fprintf ppf "@[<hv>%a@]"
     !Oprint.out_constr (ext1.oext_name, ext1.oext_args, ext1.oext_ret_type)
   | _ -> ()
@@ -224,9 +230,10 @@ let print_extension_constructor id ppf ext = match Printtyp.tree_of_extension_co
 let report_extension_constructor_mismatch first second decl ppf err =
   let pr fmt = Format.fprintf ppf fmt in
   match (err : extension_constructor_mismatch) with
-    Privacy -> pr "A private type would be revealed."
-  | Type (id, ext1, ext2, err) ->
-    pr "@[<hv>Constructors do not match:@;<1 2>%a@ is not compatible with:@;<1 2>%a@ %a@]"
+  | Privacy -> pr "A private type would be revealed."
+  | Constructor_mismatch (id, ext1, ext2, err) ->
+    pr "@[<hv>Constructors do not match:@;<1 2>%a@ is not compatible with:\
+        @;<1 2>%a@ %a@]"
       (print_extension_constructor id) ext1
       (print_extension_constructor id) ext2
       (report_constructor_mismatch first second decl) err
@@ -235,15 +242,16 @@ let report_extension_constructor_mismatch first second decl ppf err =
 let report_type_mismatch0 first second decl ppf err =
   let pr fmt = Format.fprintf ppf fmt in
   match err with
-    Arity -> pr "They have different arities."
+  | Arity -> pr "They have different arities."
   | Privacy -> pr "A private type would be revealed."
   | Kind -> pr "Their kinds differ."
   | Constraint -> pr "Their constraints differ."
   | Manifest -> ()
   | Variance -> pr "Their variances do not agree."
-  | Record_error err -> report_record_mismatch first second decl ppf err
-  | Constructor_error err -> report_variant_mismatch first second decl ppf err
-  | Extension_constructor_error err -> report_extension_constructor_mismatch first second decl ppf err
+  | Record_mismatch err -> report_record_mismatch first second decl ppf err
+  | Variant_mismatch err -> report_variant_mismatch first second decl ppf err
+  | Extension_constructor_mismatch err -> report_extension_constructor_mismatch
+                                            first second decl ppf err
   | Unboxed_representation b ->
       pr "Their internal representations differ:@ %s %s %s."
          (if b then second else first) decl
@@ -264,23 +272,26 @@ let report_type_mismatch first second decl ppf err =
 let rec compare_constructor_arguments ~loc env params1 params2 arg1 arg2 =
   match arg1, arg2 with
   | Types.Cstr_tuple arg1, Types.Cstr_tuple arg2 ->
-    if List.length arg1 <> List.length arg2 then Some (Arity : constructor_mismatch)
-    else if
+      if List.length arg1 <> List.length arg2 then
+        Some (Arity : constructor_mismatch)
+      else if
       (* Ctype.equal must be called on all arguments at once, cf. PR#7378 *)
-      Ctype.equal env true (params1 @ arg1) (params2 @ arg2)
-    then None else Some (Type : constructor_mismatch)
+        Ctype.equal env true (params1 @ arg1) (params2 @ arg2)
+        then None else Some (Type : constructor_mismatch)
   | Types.Cstr_record l1, Types.Cstr_record l2 ->
-    Option.map (fun rec_err -> Record rec_err) (compare_records env ~loc params1 params2 0 l1 l2)
+      Option.map
+        (fun rec_err -> Record rec_err)
+        (compare_records env ~loc params1 params2 0 l1 l2)
   | _ -> Some (Kind : constructor_mismatch)
 
 and compare_constructors ~loc env params1 params2 res1 res2 args1 args2 =
   match res1, res2 with
-    Some r1, Some r2 ->
-    if Ctype.equal env true [r1] [r2] then
-      compare_constructor_arguments ~loc env [r1] [r2] args1 args2
+  | Some r1, Some r2 ->
+      if Ctype.equal env true [r1] [r2] then
+        compare_constructor_arguments ~loc env [r1] [r2] args1 args2
     else Some (Type : constructor_mismatch)
   | Some _, None | None, Some _ ->
-    Some (Explicit_return_type : constructor_mismatch)
+      Some (Explicit_return_type : constructor_mismatch)
   | None, None ->
       compare_constructor_arguments ~loc env params1 params2 args1 args2
 
@@ -288,7 +299,7 @@ and compare_variants ~loc env params1 params2 n
     (cstrs1 : Types.constructor_declaration list)
     (cstrs2 : Types.constructor_declaration list) =
   match cstrs1, cstrs2 with
-    [], []   -> None
+  | [], []   -> None
   | [], c::_ -> Some (Constructor_missing (true, c.Types.cd_id))
   | c::_, [] -> Some (Constructor_missing (false, c.Types.cd_id))
   | cd1::rem1, cd2::rem2 ->
@@ -303,7 +314,8 @@ and compare_variants ~loc env params1 params2 n
           (Ident.name cd1.cd_id);
         match compare_constructors ~loc env params1 params2
                 cd1.cd_res cd2.cd_res cd1.cd_args cd2.cd_args with
-          Some r -> Some (Constructor_type (cd1, cd2, r))
+        | Some r -> Some (
+            (Constructor_mismatch (cd1, cd2, r)) : variant_mismatch)
         | None -> compare_variants ~loc env params1 params2 (n+1) rem1 rem2
       end
 
@@ -312,13 +324,14 @@ and compare_records ~loc env params1 params2 n
     (labels1 : Types.label_declaration list)
     (labels2 : Types.label_declaration list) =
   match labels1, labels2 with
-    [], []           -> None
+  | [], []           -> None
   | [], l::_ -> Some (Label_missing (true, l.Types.ld_id))
   | l::_, [] -> Some (Label_missing (false, l.Types.ld_id))
   | ld1::rem1, ld2::rem2 ->
       if Ident.name ld1.ld_id <> Ident.name ld2.ld_id
       then Some (Label_names (n, ld1.ld_id, ld2.ld_id))
-      else if ld1.ld_mutable <> ld2.ld_mutable then Some (Label_type (ld1, ld2, Mutable))
+      else if ld1.ld_mutable <> ld2.ld_mutable
+        then Some (Label_mismatch (ld1, ld2, Mutable))
       else begin
         Builtin_attributes.check_deprecated_mutable_inclusion
           ~def:ld1.ld_loc
@@ -333,7 +346,7 @@ and compare_records ~loc env params1 params2 n
             (n+1)
             rem1 rem2
         else
-          Some (Label_type (ld1, ld2, Type))
+          Some (Label_mismatch (ld1, ld2, Type))
       end
 
 let type_declarations ?(equality = false) ~loc env ~mark name decl1 path decl2 =
@@ -390,15 +403,18 @@ let type_declarations ?(equality = false) ~loc env ~mark name decl1 path decl2 =
           mark cstrs1 usage name decl1;
           if equality then mark cstrs2 Env.Positive (Path.name path) decl2
         end;
-        Option.map (fun var_err -> Constructor_error var_err) (compare_variants ~loc env decl1.type_params
-                                                   decl2.type_params 1 cstrs1 cstrs2)
+        Option.map
+          (fun var_err -> Variant_mismatch var_err)
+          (compare_variants ~loc env decl1.type_params decl2.type_params 1
+             cstrs1 cstrs2)
     | (Type_record(labels1,rep1), Type_record(labels2,rep2)) ->
         let err =
-          Option.map (fun rec_err -> Record_error rec_err) (compare_records ~loc env decl1.type_params
-            decl2.type_params 1 labels1 labels2)
+          Option.map (fun rec_err -> Record_mismatch rec_err)
+            (compare_records ~loc env decl1.type_params decl2.type_params 1
+               labels1 labels2)
         in
         if err <> None || rep1 = rep2 then err else
-        Some (Record_error (Representation (rep2 = Record_float)))
+        Some (Record_mismatch (Representation (rep2 = Record_float)))
     | (Type_open, Type_open) -> None
     | (_, _) -> Some Kind
   in
@@ -453,12 +469,12 @@ let extension_constructors ~loc env ~mark id ext1 ext2 =
   in
   if not (Ctype.equal env true (ty1 :: ext1.ext_type_params)
                                (ty2 :: ext2.ext_type_params))
-  then Some (Extension_constructor_error (Type (id, ext1, ext2, Type)))
+  then Some (Extension_constructor_mismatch (Constructor_mismatch (id, ext1, ext2, Type)))
   else match compare_constructors ~loc env
                ext1.ext_type_params ext2.ext_type_params
                ext1.ext_ret_type ext2.ext_ret_type
                ext1.ext_args ext2.ext_args with
-    Some r -> Some (Extension_constructor_error (Type (id, ext1, ext2, r)))
+    Some r -> Some (Extension_constructor_mismatch (Constructor_mismatch (id, ext1, ext2, r)))
   | None -> match ext1.ext_private, ext2.ext_private with
-      Private, Public -> Some (Extension_constructor_error Privacy)
+      Private, Public -> Some (Extension_constructor_mismatch Privacy)
     | _, _ -> None

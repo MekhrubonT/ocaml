@@ -21,41 +21,41 @@ open Types
 exception Dont_match
 
 type label_mismatch =
-    Type
+  | Type
   | Mutable
 
 type record_mismatch =
-    Label_type of label_declaration * label_declaration * label_mismatch
+  | Label_mismatch of label_declaration * label_declaration * label_mismatch
   | Label_names of int * Ident.t * Ident.t
   | Label_missing of bool * Ident.t
   | Representation of bool   (* true means second one is unboxed float *)
 
 type constructor_mismatch =
-    Type
+  | Type
   | Arity
   | Record of record_mismatch
   | Kind
   | Explicit_return_type
 
 type variant_mismatch =
-    Constructor_type of constructor_declaration * constructor_declaration * constructor_mismatch
+  | Constructor_mismatch of constructor_declaration * constructor_declaration * constructor_mismatch
   | Constructor_names of int * Ident.t * Ident.t
   | Constructor_missing of bool * Ident.t
 
 type extension_constructor_mismatch =
-    Privacy
-  | Type of Ident.t * extension_constructor * extension_constructor * constructor_mismatch
+  | Privacy
+  | Constructor_mismatch of Ident.t * extension_constructor * extension_constructor * constructor_mismatch
 
 type type_mismatch =
-    Arity
+  | Arity
   | Privacy
   | Kind
   | Constraint
   | Manifest
   | Variance
-  | Record_error of record_mismatch
-  | Constructor_error of variant_mismatch
-  | Extension_constructor_error of extension_constructor_mismatch
+  | Record_mismatch of record_mismatch
+  | Variant_mismatch of variant_mismatch
+  | Extension_constructor_mismatch of extension_constructor_mismatch
   | Unboxed_representation of bool  (* true means second one is unboxed *)
   | Immediate of immediacy * immediacy
 
