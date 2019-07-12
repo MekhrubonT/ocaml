@@ -354,7 +354,15 @@ and compare_records ~loc env params1 params2 n
           Some (Label_mismatch (ld1, ld2, Type))
       end
 
-let type_declarations ?(equality = false) ~loc env ~mark name decl1 path decl2 =
+let compare_records_with_representation ~loc env params1 params2 n
+      labels1 labels2 rep1 rep2
+  =
+  match compare_records ~loc env params1 params2 n labels1 labels2 with
+  | None when rep1 <> rep2 -> Some (Representation (rep2 = Record_float))
+  | err -> err
+
+let type_declarations ?(equality = false) ~loc env ~mark name
+      decl1 path decl2 =
   Builtin_attributes.check_alerts_inclusion
     ~def:decl1.type_loc
     ~use:decl2.type_loc
@@ -413,13 +421,11 @@ let type_declarations ?(equality = false) ~loc env ~mark name decl1 path decl2 =
           (compare_variants ~loc env decl1.type_params decl2.type_params 1
              cstrs1 cstrs2)
     | (Type_record(labels1,rep1), Type_record(labels2,rep2)) ->
-        let err =
-          Option.map (fun rec_err -> Record_mismatch rec_err)
-            (compare_records ~loc env decl1.type_params decl2.type_params 1
-               labels1 labels2)
-        in
-        if err <> None || rep1 = rep2 then err else
-        Some (Record_mismatch (Representation (rep2 = Record_float)))
+        Option.map (fun rec_err -> Record_mismatch rec_err)
+          (compare_records_with_representation ~loc env
+             decl1.type_params decl2.type_params 1
+             labels1 labels2
+             rep1 rep2)
     | (Type_open, Type_open) -> None
     | (_, _) -> Some Kind
   in
