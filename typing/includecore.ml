@@ -183,8 +183,8 @@ let report_record_mismatch first second decl ppf err =
   | Label_mismatch (l1, l2, err) ->
     pr
       "@[<hv>Fields do not match:@;<1 2>%a@ is not compatible with:@;<1 2>%a@ %a"
-      !Oprint.out_label (Printtyp.tree_of_label l1)
-      !Oprint.out_label (Printtyp.tree_of_label l2)
+      Printtyp.label l1
+      Printtyp.label l2
       (report_label_mismatch first second) err
   | Label_names (n, name1, name2) ->
     pr "@[<hv>Fields number %i have different names, %s and %s.@]"
@@ -219,8 +219,8 @@ let report_variant_mismatch first second decl ppf err =
       pr
         "@[<hv>Constructors do not match:@;<1 2>%a@ is not compatible with:\
          @;<1 2>%a@ %a"
-        !Oprint.out_constr (Printtyp.tree_of_constructor c1)
-        !Oprint.out_constr (Printtyp.tree_of_constructor c2)
+        Printtyp.constructor c1
+        Printtyp.constructor c2
         (report_constructor_mismatch first second decl) err
   | Constructor_names (n, name1, name2) ->
       pr "Constructors number %i have different names, %s and %s/"
@@ -229,12 +229,6 @@ let report_variant_mismatch first second decl ppf err =
       pr "The constructor %s is only present in %s %s."
         (Ident.name s) (if b then second else first) decl
 
-let print_extension_constructor id ppf ext =
-  match Printtyp.tree_of_extension_constructor id ext Types.Text_first with
-  | Osig_typext (ext1, Oext_first) ->
-      Format.fprintf ppf "@[<hv>%a@]"
-        !Oprint.out_constr (ext1.oext_name, ext1.oext_args, ext1.oext_ret_type)
-  | _ -> ()
 
 let report_extension_constructor_mismatch first second decl ppf err =
   let pr fmt = Format.fprintf ppf fmt in
@@ -243,8 +237,8 @@ let report_extension_constructor_mismatch first second decl ppf err =
   | Constructor_mismatch (id, ext1, ext2, err) ->
     pr "@[<hv>Constructors do not match:@;<1 2>%a@ is not compatible with:\
         @;<1 2>%a@ %a@]"
-      (print_extension_constructor id) ext1
-      (print_extension_constructor id) ext2
+      (Printtyp.extension_only_constructor id) ext1
+      (Printtyp.extension_only_constructor id) ext2
       (report_constructor_mismatch first second decl) err
 
 
