@@ -1246,7 +1246,6 @@ let extension_constructor_args_and_ret_type_subtree ext_args ext_ret_type =
     names := nm;
     (args, Some ret)
 
-
 let tree_of_extension_constructor id ext es =
   reset_except_context ();
   let ty_name = Path.name ext.ext_type_path in
@@ -1298,7 +1297,6 @@ let extension_only_constructor id ppf ext =
   in
   Format.fprintf ppf "@[<hv>%a@]"
     !Oprint.out_constr (name, args, ret)
-
 
 (* Print a value declaration *)
 

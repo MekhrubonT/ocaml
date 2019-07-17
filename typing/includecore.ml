@@ -230,7 +230,6 @@ let report_variant_mismatch first second decl ppf err =
       pr "The constructor %s is only present in %s %s."
         (Ident.name s) (if b then second else first) decl
 
-
 let report_extension_constructor_mismatch first second decl ppf err =
   let pr fmt = Format.fprintf ppf fmt in
   match (err : extension_constructor_mismatch) with
@@ -241,7 +240,6 @@ let report_extension_constructor_mismatch first second decl ppf err =
         (Printtyp.extension_only_constructor id) ext1
         (Printtyp.extension_only_constructor id) ext2
         (report_constructor_mismatch first second decl) err
-
 
 let report_type_mismatch0 first second decl ppf err =
   let pr fmt = Format.fprintf ppf fmt in
@@ -280,9 +278,9 @@ let rec compare_constructor_arguments ~loc env params1 params2 arg1 arg2 =
       if List.length arg1 <> List.length arg2 then
         Some (Arity : constructor_mismatch)
       else if
-      (* Ctype.equal must be called on all arguments at once, cf. PR#7378 *)
+        (* Ctype.equal must be called on all arguments at once, cf. PR#7378 *)
         Ctype.equal env true (params1 @ arg1) (params2 @ arg2)
-        then None else Some (Type : constructor_mismatch)
+      then None else Some (Type : constructor_mismatch)
   | Types.Cstr_record l1, Types.Cstr_record l2 ->
       Option.map
         (fun rec_err -> Record rec_err)
@@ -331,10 +329,9 @@ and compare_labels env params1 params2
       if ld1.ld_mutable <> ld2.ld_mutable
       then Some (Mutable (ld2.ld_mutable = Asttypes.Mutable))
       else
-        if Ctype.equal env true (ld1.ld_type::params1)(ld2.ld_type::params2)
+        if Ctype.equal env true (ld1.ld_type::params1) (ld2.ld_type::params2)
         then None
-        else
-          Some (Type : label_mismatch)
+        else Some (Type : label_mismatch)
 
 and compare_records ~loc env params1 params2 n
     (labels1 : Types.label_declaration list)
@@ -345,7 +342,7 @@ and compare_records ~loc env params1 params2 n
   | l::_, [] -> Some (Label_missing (false, l.Types.ld_id))
   | ld1::rem1, ld2::rem2 ->
       if Ident.name ld1.ld_id <> Ident.name ld2.ld_id
-        then Some (Label_names (n, ld1.ld_id, ld2.ld_id))
+      then Some (Label_names (n, ld1.ld_id, ld2.ld_id))
       else begin
         Builtin_attributes.check_deprecated_mutable_inclusion
           ~def:ld1.ld_loc
