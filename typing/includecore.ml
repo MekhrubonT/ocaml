@@ -325,25 +325,16 @@ and compare_variants ~loc env params1 params2 n
         | None -> compare_variants ~loc env params1 params2 (n+1) rem1 rem2
       end
 
-and compare_labels ~loc env params1 params2
+and compare_labels env params1 params2
       (ld1 : Types.label_declaration)
       (ld2 : Types.label_declaration) =
       if ld1.ld_mutable <> ld2.ld_mutable
       then Some (Mutable (ld2.ld_mutable = Asttypes.Mutable))
-      else begin
-        Builtin_attributes.check_deprecated_mutable_inclusion
-          ~def:ld1.ld_loc
-          ~use:ld2.ld_loc
-          loc
-          ld1.ld_attributes ld2.ld_attributes
-          (Ident.name ld1.ld_id);
+      else
         if Ctype.equal env true (ld1.ld_type::params1)(ld2.ld_type::params2)
         then None
         else
           Some (Type : label_mismatch)
-      end
-
-
 
 and compare_records ~loc env params1 params2 n
     (labels1 : Types.label_declaration list)
@@ -355,14 +346,21 @@ and compare_records ~loc env params1 params2 n
   | ld1::rem1, ld2::rem2 ->
       if Ident.name ld1.ld_id <> Ident.name ld2.ld_id
         then Some (Label_names (n, ld1.ld_id, ld2.ld_id))
-      else
-        match compare_labels ~loc env params1 params2 ld1 ld2 with
+      else begin
+        Builtin_attributes.check_deprecated_mutable_inclusion
+          ~def:ld1.ld_loc
+          ~use:ld2.ld_loc
+          loc
+          ld1.ld_attributes ld2.ld_attributes
+          (Ident.name ld1.ld_id);
+        match compare_labels env params1 params2 ld1 ld2 with
         | Some r -> Some (Label_mismatch (ld1, ld2, r))
         (* add arguments to the parameters, cf. PR#7378 *)
         | None -> compare_records ~loc env
                     (ld1.ld_type::params1) (ld2.ld_type::params2)
                     (n+1)
                     rem1 rem2
+      end
 
 let compare_records_with_representation ~loc env params1 params2 n
       labels1 labels2 rep1 rep2
