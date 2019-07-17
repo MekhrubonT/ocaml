@@ -143,17 +143,17 @@ type constructor_mismatch =
 
 type variant_mismatch =
   | Constructor_mismatch of Types.constructor_declaration
-                        * Types.constructor_declaration
-                        * constructor_mismatch
+                            * Types.constructor_declaration
+                            * constructor_mismatch
   | Constructor_names of int * Ident.t * Ident.t
   | Constructor_missing of bool * Ident.t
 
 type extension_constructor_mismatch =
   | Privacy
   | Constructor_mismatch of Ident.t
-             * Types.extension_constructor
-             * Types.extension_constructor
-             * constructor_mismatch
+                            * Types.extension_constructor
+                            * Types.extension_constructor
+                            * constructor_mismatch
 
 type type_mismatch =
   | Arity
@@ -181,22 +181,22 @@ let report_record_mismatch first second decl ppf err =
   let pr fmt = Format.fprintf ppf fmt in
   match err with
   | Label_mismatch (l1, l2, err) ->
-    pr
-      "@[<hv>Fields do not match:@;<1 2>%a@ is not compatible with:\
-       @;<1 2>%a@ %a"
-      Printtyp.label l1
-      Printtyp.label l2
-      (report_label_mismatch first second) err
+      pr
+        "@[<hv>Fields do not match:@;<1 2>%a@ is not compatible with:\
+         @;<1 2>%a@ %a"
+        Printtyp.label l1
+        Printtyp.label l2
+        (report_label_mismatch first second) err
   | Label_names (n, name1, name2) ->
-    pr "@[<hv>%i%s fields have different names, %s and %s.@]"
-      n (Misc.suffix n) (Ident.name name1) (Ident.name name2)
+      pr "@[<hv>%i%s fields have different names, %s and %s.@]"
+        n (Misc.suffix n) (Ident.name name1) (Ident.name name2)
   | Label_missing (b, s) ->
-    pr "@[<hv>The field %s is only present in %s %s.@]"
-      (Ident.name s) (if b then second else first) decl
+      pr "@[<hv>The field %s is only present in %s %s.@]"
+        (Ident.name s) (if b then second else first) decl
   | Representation b ->
-    pr "@[<hv>Their internal representations differ:@ %s %s %s.@]"
-      (if b then second else first) decl
-      "uses unboxed float representation"
+      pr "@[<hv>Their internal representations differ:@ %s %s %s.@]"
+        (if b then second else first) decl
+        "uses unboxed float representation"
 
 let report_constructor_mismatch first second decl ppf err =
   let pr fmt  = Format.fprintf ppf fmt in
@@ -236,11 +236,11 @@ let report_extension_constructor_mismatch first second decl ppf err =
   match (err : extension_constructor_mismatch) with
   | Privacy -> pr "A private type would be revealed."
   | Constructor_mismatch (id, ext1, ext2, err) ->
-    pr "@[<hv>Constructors do not match:@;<1 2>%a@ is not compatible with:\
-        @;<1 2>%a@ %a@]"
-      (Printtyp.extension_only_constructor id) ext1
-      (Printtyp.extension_only_constructor id) ext2
-      (report_constructor_mismatch first second decl) err
+      pr "@[<hv>Constructors do not match:@;<1 2>%a@ is not compatible with:\
+          @;<1 2>%a@ %a@]"
+        (Printtyp.extension_only_constructor id) ext1
+        (Printtyp.extension_only_constructor id) ext2
+        (report_constructor_mismatch first second decl) err
 
 
 let report_type_mismatch0 first second decl ppf err =
@@ -295,7 +295,7 @@ and compare_constructors ~loc env params1 params2 res1 res2 args1 args2 =
   | Some r1, Some r2 ->
       if Ctype.equal env true [r1] [r2] then
         compare_constructor_arguments ~loc env [r1] [r2] args1 args2
-    else Some (Type : constructor_mismatch)
+      else Some (Type : constructor_mismatch)
   | Some _, None -> Some (Explicit_return_type false : constructor_mismatch)
   | None, Some _ -> Some (Explicit_return_type true : constructor_mismatch)
   | None, None ->
@@ -316,7 +316,7 @@ and compare_variants ~loc env params1 params2 n
           ~def:cd1.cd_loc
           ~use:cd2.cd_loc
           loc
-        cd1.cd_attributes cd2.cd_attributes
+          cd1.cd_attributes cd2.cd_attributes
           (Ident.name cd1.cd_id);
         match compare_constructors ~loc env params1 params2
                 cd1.cd_res cd2.cd_res cd1.cd_args cd2.cd_args with
