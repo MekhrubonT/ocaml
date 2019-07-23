@@ -29,7 +29,7 @@ Line 2, characters 0-37:
     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Error: This variant or record definition does not match that of type
          ('a, 'a) foo
-       Their constraints differ.
+       Constraints are different: 'a is different from 'b
 module M : sig type foo = .. end
 module type S = sig type foo end
 module M_S : S

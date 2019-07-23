@@ -18,10 +18,10 @@
 open Typedtree
 open Types
 
-exception Dont_match
+exception Dont_match of Errortrace.Moregen.t option
 
 type label_mismatch =
-  | Type
+  | Type of Env.t * Errortrace.Equality.t
   | Mutable of bool
 
 type record_mismatch =
@@ -31,7 +31,7 @@ type record_mismatch =
   | Representation of bool   (* true means second one is unboxed float *)
 
 type constructor_mismatch =
-  | Type
+  | Type of Env.t * Errortrace.Equality.t
   | Arity
   | Record of record_mismatch
   | Kind of bool
@@ -55,8 +55,9 @@ type type_mismatch =
   | Arity
   | Privacy
   | Kind
-  | Constraint
+  | Constraint of Env.t * Errortrace.Equality.t
   | Manifest
+  | Manifest_type of Env.t * Errortrace.Equality.t
   | Variance
   | Record_mismatch of record_mismatch
   | Variant_mismatch of variant_mismatch

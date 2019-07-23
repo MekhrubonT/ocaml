@@ -23,6 +23,7 @@ open Parsetree
 open Typedtree
 open Types
 open Ctype
+open Errortrace
 
 exception Already_bound
 
@@ -34,8 +35,8 @@ type error =
   | Bound_type_variable of string
   | Recursive_type
   | Unbound_row_variable of Longident.t
-  | Type_mismatch of Ctype.Unification_trace.t
-  | Alias_type_mismatch of Ctype.Unification_trace.t
+  | Type_mismatch of Errortrace.Unification.t
+  | Alias_type_mismatch of Errortrace.Unification.t
   | Present_has_conjunction of string
   | Present_has_no_type of string
   | Constructor_mismatch of type_expr * type_expr
@@ -394,7 +395,7 @@ and transl_type_aux env policy styp =
       List.iter2
         (fun (sty, cty) ty' ->
            try unify_param env ty' cty.ctyp_type with Unify trace ->
-             let trace = Unification_trace.swap trace in
+             let trace = Unification.swap trace in
              raise (Error(sty.ptyp_loc, env, Type_mismatch trace))
         )
         (List.combine stl args) params;
@@ -449,7 +450,7 @@ and transl_type_aux env policy styp =
       List.iter2
         (fun (sty, cty) ty' ->
            try unify_var env ty' cty.ctyp_type with Unify trace ->
-             let trace = Unification_trace.swap trace in
+             let trace = Unification.swap trace in
              raise (Error(sty.ptyp_loc, env, Type_mismatch trace))
         )
         (List.combine stl args) params;
@@ -501,7 +502,7 @@ and transl_type_aux env policy styp =
           in
           let ty = transl_type env policy st in
           begin try unify_var env t ty.ctyp_type with Unify trace ->
-            let trace = Unification_trace.swap trace in
+            let trace = Unification.swap trace in
             raise(Error(styp.ptyp_loc, env, Alias_type_mismatch trace))
           end;
           ty
@@ -512,7 +513,7 @@ and transl_type_aux env policy styp =
             TyVarMap.add alias (t, styp.ptyp_loc) !used_variables;
           let ty = transl_type env policy st in
           begin try unify_var env t ty.ctyp_type with Unify trace ->
-            let trace = Unification_trace.swap trace in
+            let trace = Unification.swap trace in
             raise(Error(styp.ptyp_loc, env, Alias_type_mismatch trace))
           end;
           if !Clflags.principal then begin
@@ -543,10 +544,12 @@ and transl_type_aux env policy styp =
           (* Check for tag conflicts *)
           if l <> l' then raise(Error(styp.ptyp_loc, env, Variant_tags(l, l')));
           let ty = mkfield l f and ty' = mkfield l f' in
-          if equal env false [ty] [ty'] then () else
-          try unify env ty ty'
-          with Unify _trace ->
-            raise(Error(loc, env, Constructor_mismatch (ty,ty')))
+          try
+            equal env false [ty] [ty']
+          with Equality _ ->
+            try unify env ty ty'
+            with Unify _trace ->
+              raise(Error(loc, env, Constructor_mismatch (ty,ty')))
         with Not_found ->
           Hashtbl.add hfields h (l,f)
       in
@@ -698,7 +701,8 @@ and transl_fields env policy o fields =
   let add_typed_field loc l ty =
     try
       let ty' = Hashtbl.find hfields l in
-      if equal env false [ty] [ty'] then () else
+      try equal env false [ty] [ty']
+      with Equality _ ->
         try unify env ty ty'
         with Unify _trace ->
           raise(Error(loc, env, Method_mismatch (l, ty, ty')))

@@ -21,6 +21,8 @@ Error: Signature mismatch:
          type ('a, 'b) t = 'a * 'a
        is not included in
          type ('a, 'b) t = 'a * 'b
+       Type 'a * 'a is not equal to type 'a0 * 'b
+       Type 'a is not equal to type 'b
 |}];;
 
 module M : sig
@@ -42,6 +44,8 @@ Error: Signature mismatch:
          type ('a, 'b) t = 'a * 'b
        is not included in
          type ('a, 'b) t = 'a * 'a
+       Type 'a * 'b is not equal to type 'a0 * 'a0
+       Type 'b is not equal to type 'a0
 |}];;
 
 module M : sig
@@ -63,6 +67,37 @@ Error: Signature mismatch:
          type t = < m : 'a. 'a * ('a * 'b) > as 'b
        is not included in
          type t = < m : 'b. 'b * ('b * < m : 'c. 'c * 'a > as 'a) >
+       Type < m : 'a. 'a * ('a * 'd) > as 'd is not equal to type
+         < m : 'b. 'b * ('b * < m : 'c. 'c * 'e > as 'e) >
+       The method m has type 'a. 'a * ('a * 'd),
+       but the expected method type was 'c. 'c * 'e
+       The universal variable 'b would escape its scope
+|}];;
+
+module M : sig
+  type t = <m : 'b. 'b * ('b * <m:'c. 'c * 'bar> as 'bar)>
+end = struct
+  type t = <m : 'a. 'a * ('a * 'foo)> as 'foo
+end;;
+[%%expect{|
+Line 3, characters 6-62:
+3 | ......struct
+4 |   type t = <m : 'a. 'a * ('a * 'foo)> as 'foo
+5 | end..
+Error: Signature mismatch:
+       Modules do not match:
+         sig type t = < m : 'a. 'a * ('a * 'b) > as 'b end
+       is not included in
+         sig type t = < m : 'b. 'b * ('b * < m : 'c. 'c * 'a > as 'a) > end
+       Type declarations do not match:
+         type t = < m : 'a. 'a * ('a * 'b) > as 'b
+       is not included in
+         type t = < m : 'b. 'b * ('b * < m : 'c. 'c * 'a > as 'a) >
+       Type < m : 'a. 'a * ('a * 'd) > as 'd is not equal to type
+         < m : 'b. 'b * ('b * < m : 'c. 'c * 'e > as 'e) >
+       The method m has type 'a. 'a * ('a * 'd),
+       but the expected method type was 'c. 'c * 'e
+       The universal variable 'b would escape its scope
 |}];;
 
 type s = private < m : int; .. >;;
@@ -89,6 +124,8 @@ Error: Signature mismatch:
          type t = < m : int >
        is not included in
          type t = s
+       Type < m : int > is not equal to type s
+       The second object type has an abstract row, it cannot be closed
 |}];;
 
 module M : sig
@@ -110,6 +147,8 @@ Error: Signature mismatch:
          type t = s
        is not included in
          type t = < m : int >
+       Type s is not equal to type < m : int >
+       The first object type has an abstract row, it cannot be closed
 |}];;
 
 module M : sig
@@ -136,9 +175,9 @@ Error: Signature mismatch:
          type t = Foo of int * float
        Constructors do not match:
          Foo of (int * int) * float
-       is not compatible with:
+       is not equal to:
          Foo of int * float
-       The types are not equal.
+       Type int * int is not equal to type int
 |}];;
 
 module M : sig
@@ -160,6 +199,7 @@ Error: Signature mismatch:
          type t = int * float * int
        is not included in
          type t = int * float
+       Type int * float * int is not equal to type int * float
 |}];;
 
 module M : sig
@@ -181,6 +221,9 @@ Error: Signature mismatch:
          type t = < f : float; n : int >
        is not included in
          type t = < m : float; n : int >
+       Type < f : float; n : int > is not equal to type
+         < m : float; n : int >
+       The second object type has no method f
 |}];;
 
 module M : sig
@@ -202,6 +245,8 @@ Error: Signature mismatch:
          type t = < n : int >
        is not included in
          type t = < m : float; n : int >
+       Type < n : int > is not equal to type < m : float; n : int >
+       The first object type has no method m
 |}];;
 
 module M4 : sig
@@ -223,6 +268,9 @@ Error: Signature mismatch:
          type t = < m : int; n : int >
        is not included in
          type t = < m : float * int; n : int >
+       Type < m : int; n : int > is not equal to type
+         < m : float * int; n : int >
+       Types for method m are incompatible
 |}];;
 
 module M4 : sig
@@ -249,9 +297,11 @@ Error: Signature mismatch:
          type t = Foo of [ `Bar of string | `Foo of string ]
        Constructors do not match:
          Foo of [ `Bar of string ]
-       is not compatible with:
+       is not equal to:
          Foo of [ `Bar of string | `Foo of string ]
-       The types are not equal.
+       Type [ `Bar of string ] is not equal to type
+         [ `Bar of string | `Foo of string ]
+       The first declaration has no tag `Foo
 |}];;
 
 module M : sig
@@ -273,6 +323,8 @@ Error: Signature mismatch:
          type t = private [ `C ]
        is not included in
          type t = private [ `C of int ]
+       Type [ `C ] is not equal to type [ `C of int ]
+       Types for tag `C are incompatible
 |}];;
 
 module M : sig
@@ -294,6 +346,8 @@ Error: Signature mismatch:
          type t = private [ `C of int ]
        is not included in
          type t = private [ `C ]
+       Type [ `C of int ] is not equal to type [ `C ]
+       Types for tag `C are incompatible
 |}];;
 
 module M : sig
@@ -324,6 +378,8 @@ Error: Signature mismatch:
          type t = private [ `A of int ]
        is not included in
          type t = private [> `A of int ]
+       Type [ `A of int ] is not equal to type [> `A of int ]
+       The second is open and the first is not
 |}];;
 
 module M : sig
@@ -345,6 +401,8 @@ Error: Signature mismatch:
          type t = private [> `A of int ]
        is not included in
          type t = private [ `A of int ]
+       Type [> `A of int ] is not equal to type [ `A of int ]
+       The first is open and the second is not
 |}];;
 
 module M : sig
@@ -366,6 +424,8 @@ Error: Signature mismatch:
          type 'a t = 'a constraint 'a = [> `A of int ]
        is not included in
          type 'a t = 'a constraint 'a = [> `A of int | `B of int ]
+       Type [> `A of int ] is not equal to type [> `A of int | `B of int ]
+       The first declaration has no tag `B
 |}];;
 
 module M : sig
@@ -387,6 +447,8 @@ Error: Signature mismatch:
          type 'a t = 'a constraint 'a = [> `A of int | `C of float ]
        is not included in
          type 'a t = 'a constraint 'a = [> `A of int ]
+       Type [> `A of int | `C of float ] is not equal to type [> `A of int ]
+       The second declaration has no tag `C
 |}];;
 
 module M : sig
