@@ -28,7 +28,7 @@ Error: Signature mismatch:
          Foo of float * int
        is not compatible with:
          Foo of int * int
-       The types are not equal.
+       Type float is not compatible with type int
 |}];;
 
 module M2 : sig
@@ -90,7 +90,7 @@ Error: Signature mismatch:
          x : float;
        is not compatible with:
          x : int;
-       The types are not equal.
+       Type float is not compatible with type int
 |}];;
 
 module M4 : sig

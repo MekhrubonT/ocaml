@@ -319,5 +319,7 @@ Error: This variant or record definition does not match that of type M.t
          E of (MkT(M.T).t, MkT(M.T).t) eq
        is not compatible with:
          E of (MkT(Desc).t, MkT(Desc).t) eq
-       The types are not equal.
+       Type (MkT(M.T).t, MkT(M.T).t) eq is not compatible with type
+         (MkT(Desc).t, MkT(Desc).t) eq
+       Type MkT(M.T).t is not compatible with type MkT(Desc).t
 |}]

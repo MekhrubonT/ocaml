@@ -48,8 +48,8 @@ type class_type_info = {
 }
 
 type error =
-    Unconsistent_constraint of Ctype.Unification_trace.t
-  | Field_type_mismatch of string * string * Ctype.Unification_trace.t
+  | Unconsistent_constraint of Errortrace.Unification_trace.t
+  | Field_type_mismatch of string * string * Errortrace.Unification_trace.t
   | Structure_expected of class_type
   | Cannot_apply of class_type
   | Apply_wrong_label of arg_label
@@ -58,10 +58,10 @@ type error =
   | Unbound_class_2 of Longident.t
   | Unbound_class_type_2 of Longident.t
   | Abbrev_type_clash of type_expr * type_expr * type_expr
-  | Constructor_type_mismatch of string * Ctype.Unification_trace.t
+  | Constructor_type_mismatch of string * Errortrace.Unification_trace.t
   | Virtual_class of bool * bool * string list * string list
   | Parameter_arity_mismatch of Longident.t * int * int
-  | Parameter_mismatch of Ctype.Unification_trace.t
+  | Parameter_mismatch of Errortrace.Unification_trace.t
   | Bad_parameters of Ident.t * type_expr * type_expr
   | Class_match_failure of Ctype.class_match_failure list
   | Unbound_val of string
@@ -69,8 +69,8 @@ type error =
   | Non_generalizable_class of Ident.t * Types.class_declaration
   | Cannot_coerce_self of type_expr
   | Non_collapsable_conjunction of
-      Ident.t * Types.class_declaration * Ctype.Unification_trace.t
-  | Final_self_clash of Ctype.Unification_trace.t
+      Ident.t * Types.class_declaration * Errortrace.Unification_trace.t
+  | Final_self_clash of Errortrace.Unification_trace.t
   | Mutability_mismatch of string * mutable_flag
   | No_overriding of string * string
   | Duplicate of string * string
@@ -268,7 +268,7 @@ let enter_val cl_num vars inh lab mut virt ty val_env met_env par_env loc =
       (if not inh then Some id else None),
       (if virt' = Concrete then virt' else virt)
     with
-      Ctype.Unify tr ->
+      Errortrace.Unify tr ->
         raise (Error(loc, val_env,
                      Field_type_mismatch("instance variable", lab, tr)))
     | Not_found -> None, virt
@@ -294,8 +294,8 @@ let inheritance self_type env ovf concr_meths warn_vals loc parent =
       (* Methods *)
       begin try
         Ctype.unify env self_type cl_sig.csig_self
-      with Ctype.Unify trace ->
-        let open Ctype.Unification_trace in
+      with Errortrace.Unify trace ->
+        let open Errortrace.Unification_trace in
         match trace with
         | Diff _ :: Incompatible_fields {name = n; _ } :: rem ->
             raise(Error(loc, env, Field_type_mismatch ("method", n, rem)))
@@ -342,7 +342,7 @@ let virtual_method val_env meths self_type lab priv sty loc =
   let cty = transl_simple_type val_env false sty in
   let ty = cty.ctyp_type in
   begin
-    try Ctype.unify val_env ty ty' with Ctype.Unify trace ->
+    try Ctype.unify val_env ty ty' with Errortrace.Unify trace ->
         raise(Error(loc, val_env, Field_type_mismatch ("method", lab, trace)));
   end;
   cty
@@ -354,7 +354,7 @@ let declare_method val_env meths self_type lab priv sty loc =
      Ctype.filter_self_method val_env lab priv meths self_type
   in
   let unif ty =
-    try Ctype.unify val_env ty ty' with Ctype.Unify trace ->
+    try Ctype.unify val_env ty ty' with Errortrace.Unify trace ->
       raise(Error(loc, val_env, Field_type_mismatch ("method", lab, trace)))
   in
   let sty = Ast_helper.Typ.force_poly sty in
@@ -385,7 +385,7 @@ let type_constraint val_env sty sty' loc =
   let cty' = transl_simple_type val_env false sty' in
   let ty' = cty'.ctyp_type in
   begin
-    try Ctype.unify val_env ty ty' with Ctype.Unify trace ->
+    try Ctype.unify val_env ty ty' with Errortrace.Unify trace ->
         raise(Error(loc, val_env, Unconsistent_constraint trace));
   end;
   (cty, cty')
@@ -480,7 +480,7 @@ and class_signature env {pcsig_self=sty; pcsig_fields=sign} =
     (Ctype.newty (Ttuple []));
   begin try
     Ctype.unify env self_type dummy_obj
-  with Ctype.Unify _ ->
+  with Errortrace.Unify _ ->
     raise(Error(sty.ptyp_loc, env, Pattern_type_clash self_type))
   end;
 
@@ -534,7 +534,7 @@ and class_type_aux env scty =
           let cty' = transl_simple_type env false sty in
           let ty' = cty'.ctyp_type in
           begin
-           try Ctype.unify env ty' ty with Ctype.Unify trace ->
+           try Ctype.unify env ty' ty with Errortrace.Unify trace ->
                   raise(Error(sty.ptyp_loc, env, Parameter_mismatch trace))
             end;
             cty'
@@ -727,7 +727,7 @@ and class_field_aux self_loc cl_num self_type meths vars
           | _ -> assert false
           end
       | _ -> assert false
-      with Ctype.Unify trace ->
+      with Errortrace.Unify trace ->
         raise(Error(loc, val_env,
                     Field_type_mismatch ("method", lab.txt, trace)))
       end;
@@ -827,7 +827,7 @@ and class_structure cl_num final val_env met_env loc
     if final then Ctype.newty (Tobject (Ctype.newvar(), ref None))
     else self_type in
   begin try Ctype.unify val_env public_self ty with
-    Ctype.Unify _ ->
+    Errortrace.Unify _ ->
       raise(Error(spat.ppat_loc, val_env, Pattern_type_clash public_self))
   end;
   let get_methods ty =
@@ -886,7 +886,8 @@ and class_structure cl_num final val_env met_env loc
       Ctype.unify val_env private_self
         (Ctype.newty (Tobject(self_methods, ref None)));
       Ctype.unify val_env public_self self_type
-    with Ctype.Unify trace -> raise(Error(loc, val_env, Final_self_clash trace))
+    with Errortrace.Unify trace ->
+      raise(Error(loc, val_env, Final_self_clash trace))
     end;
   end;
 
@@ -945,7 +946,7 @@ and class_expr_aux cl_num val_env met_env scl =
       List.iter2
         (fun cty' ty ->
           let ty' = cty'.ctyp_type in
-           try Ctype.unify val_env ty' ty with Ctype.Unify trace ->
+           try Ctype.unify val_env ty' ty with Errortrace.Unify trace ->
              raise(Error(cty'.ctyp_loc, val_env, Parameter_mismatch trace)))
         tyl params;
       let cl =
@@ -1414,7 +1415,7 @@ let class_infos define_class kind
       raise(Error(cl.pci_loc, env, Closing_self_type ty));
     begin try
       List.iter2 (Ctype.unify env) obj_params obj_params'
-    with Ctype.Unify _ ->
+    with Errortrace.Unify _ ->
       raise(Error(cl.pci_loc, env,
             Bad_parameters (obj_id, constr,
                             Ctype.newconstr (Path.Pident obj_id)

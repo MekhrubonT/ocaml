@@ -67,8 +67,8 @@ type error =
   | Cycle_in_def of string * type_expr
   | Definition_mismatch of type_expr * Includecore.type_mismatch option
   | Constraint_failed of type_expr * type_expr
-  | Inconsistent_constraint of Env.t * Ctype.Unification_trace.t
-  | Type_clash of Env.t * Ctype.Unification_trace.t
+  | Inconsistent_constraint of Env.t * Errortrace.Unification_trace.t
+  | Type_clash of Env.t * Errortrace.Unification_trace.t
   | Parameters_differ of Path.t * type_expr * type_expr
   | Null_arity_external
   | Missing_native_external
@@ -76,7 +76,7 @@ type error =
   | Cannot_extend_private_type of Path.t
   | Not_extensible_type of Path.t
   | Extension_mismatch of Path.t * Includecore.type_mismatch
-  | Rebind_wrong_type of Longident.t * Env.t * Ctype.Unification_trace.t
+  | Rebind_wrong_type of Longident.t * Env.t * Errortrace.Unification_trace.t
   | Rebind_mismatch of Longident.t * Path.t * Path.t
   | Rebind_private of Longident.t
   | Variance of Typedecl_variance.error

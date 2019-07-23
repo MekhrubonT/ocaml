@@ -99,7 +99,7 @@ Error: This variant or record definition does not match that of type u
          X of bool
        is not compatible with:
          X of int
-       The types are not equal.
+       Type bool is not compatible with type int
 |}];;
 
 (* PR#5815 *)
@@ -170,7 +170,7 @@ Error: Signature mismatch:
          E of int
        is not compatible with:
          E of char
-       The types are not equal.
+       Type int is not compatible with type char
 |}];;
 
 module M : sig type t += C of int end = struct type t += E of int end;;

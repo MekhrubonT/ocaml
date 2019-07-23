@@ -31,7 +31,7 @@ Error: This variant or record definition does not match that of type M1.t
          E of M1.x
        is not compatible with:
          E of M1.y
-       The types are not equal.
+       Type M1.x is not compatible with type M1.y
 |}]
 
 let bool_of_int x =
@@ -83,5 +83,6 @@ Error: This variant or record definition does not match that of type M1.t
          E of (M1.x, M1.x) eq
        is not compatible with:
          E of (M1.x, M1.y) eq
-       The types are not equal.
+       Type (M1.x, M1.x) eq is not compatible with type (M1.x, M1.y) eq
+       Type M1.x is not compatible with type M1.y
 |}]

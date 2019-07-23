@@ -21,6 +21,7 @@ Error: Signature mismatch:
          type t = [ `C ]
        is not included in
          type t = private [< `A | `B ]
+       Miss constr
 |}];;
 
 module M : sig
@@ -42,6 +43,7 @@ Error: Signature mismatch:
          type t = private [> `A ]
        is not included in
          type t = private [< `A | `B ]
+       Miss constr
 |}];;
 
 module M : sig
@@ -63,6 +65,7 @@ Error: Signature mismatch:
          type t = [ `B ]
        is not included in
          type t = private [< `A | `B > `A ]
+       Extra constr
 |}];;
 
 module M : sig
@@ -170,6 +173,7 @@ Error: Signature mismatch:
          type t = [ `A of float ]
        is not included in
          type t = private [> `A of int ]
+       Type float is not compatible with type int
 |}];;
 
 module M : sig
@@ -191,6 +195,7 @@ Error: Signature mismatch:
          type t = < b : int >
        is not included in
          type t = private < a : int; .. >
+       Miss field
 |}];;
 
 module M : sig
@@ -212,6 +217,7 @@ Error: Signature mismatch:
          type t = < a : int >
        is not included in
          type t = private < a : float; .. >
+       Type int is not compatible with type float
 |}];;
 
 type w = private float
@@ -239,6 +245,8 @@ Error: Signature mismatch:
          type t = private u
        is not included in
          type t = private int * (int * int)
+       Type int * q is not compatible with type int * (int * int)
+       Type q is not compatible with type int * int
 |}];;
 
 type w = float
@@ -266,6 +274,8 @@ Error: Signature mismatch:
          type t = private u
        is not included in
          type t = private int * (int * int)
+       Type int * q is not compatible with type int * (int * int)
+       Type w is not compatible with type int
 |}];;
 
 type s = private int
@@ -290,4 +300,5 @@ Error: Signature mismatch:
          type t = private s
        is not included in
          type t = private float
+       Type int is not compatible with type float
 |}];;

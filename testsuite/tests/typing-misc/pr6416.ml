@@ -54,7 +54,7 @@ Error: Signature mismatch:
          A of t/1
        is not compatible with:
          A of t/2
-       The types are not equal.
+       Type t/1 is not compatible with type t/2
        Line 4, characters 9-19:
          Definition of type t/1
        Line 2, characters 2-11:
@@ -121,7 +121,7 @@ Error: Signature mismatch:
          A of T/1.t
        is not compatible with:
          A of T/2.t
-       The types are not equal.
+       Type T/1.t is not compatible with type T/2.t
        Line 5, characters 6-34:
          Definition of module T/1
        Line 2, characters 2-30:
@@ -306,8 +306,7 @@ Error: Signature mismatch:
          class type c = object method m : t/2 end
        does not match
          class type c = object method m : t/1 end
-       The method m has type t/2 but is expected to have type t/1
-       Type t/2 is not compatible with type t/1 = K.t
+       The method m has type t/2 but is expected to have type t/1 = K.t
        Line 12, characters 4-10:
          Definition of type t/1
        Line 9, characters 2-8:
@@ -331,6 +330,7 @@ Error: Signature mismatch:
          type a = M/1.t
        is not included in
          type a = M/2.t
+       Type M/1.t is not compatible with type M/2.t
        Line 2, characters 14-42:
          Definition of module M/1
        File "_none_", line 1:

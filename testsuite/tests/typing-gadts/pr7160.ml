@@ -22,5 +22,6 @@ Error: This variant or record definition does not match that of type 'a t
          Same : 'l t -> 'l t
        is not compatible with:
          Same : 'l1 t -> 'l2 t
-       The types are not equal.
+       Type 'l t is not compatible with type 'l1 t
+       Type 'l is not compatible with type 'l1
 |}];;

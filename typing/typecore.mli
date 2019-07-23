@@ -118,13 +118,13 @@ val self_coercion : (Path.t * Location.t list ref) list ref
 
 type error =
   | Constructor_arity_mismatch of Longident.t * int * int
-  | Label_mismatch of Longident.t * Ctype.Unification_trace.t
-  | Pattern_type_clash of Ctype.Unification_trace.t
-  | Or_pattern_type_clash of Ident.t * Ctype.Unification_trace.t
+  | Label_mismatch of Longident.t * Errortrace.Unification_trace.t
+  | Pattern_type_clash of Errortrace.Unification_trace.t
+  | Or_pattern_type_clash of Ident.t * Errortrace.Unification_trace.t
   | Multiply_bound_variable of string
   | Orpat_vars of Ident.t * Ident.t list
   | Expr_type_clash of
-      Ctype.Unification_trace.t * type_forcing_context option
+      Errortrace.Unification_trace.t * type_forcing_context option
   | Apply_non_function of type_expr
   | Apply_wrong_label of arg_label * type_expr
   | Label_multiply_defined of string
@@ -142,18 +142,18 @@ type error =
   | Private_label of Longident.t * type_expr
   | Unbound_instance_variable of string * string list
   | Instance_variable_not_mutable of bool * string
-  | Not_subtype of Ctype.Unification_trace.t * Ctype.Unification_trace.t
+  | Not_subtype of Errortrace.Unification_trace.t * Errortrace.Unification_trace.t
   | Outside_class
   | Value_multiply_overridden of string
   | Coercion_failure of
-      type_expr * type_expr * Ctype.Unification_trace.t * bool
+      type_expr * type_expr * Errortrace.Unification_trace.t * bool
   | Too_many_arguments of bool * type_expr * type_forcing_context option
   | Abstract_wrong_label of arg_label * type_expr * type_forcing_context option
   | Scoping_let_module of string * type_expr
   | Masked_instance_variable of Longident.t
   | Not_a_variant_type of Longident.t
   | Incoherent_label_order
-  | Less_general of string * Ctype.Unification_trace.t
+  | Less_general of string * Errortrace.Unification_trace.t
   | Modules_not_allowed
   | Cannot_infer_signature
   | Not_a_packed_module of type_expr
@@ -174,9 +174,9 @@ type error =
   | Illegal_letrec_expr
   | Illegal_class_expr
   | Empty_pattern
-  | Letop_type_clash of string * Ctype.Unification_trace.t
-  | Andop_type_clash of string * Ctype.Unification_trace.t
-  | Bindings_type_clash of Ctype.Unification_trace.t
+  | Letop_type_clash of string * Errortrace.Unification_trace.t
+  | Andop_type_clash of string * Errortrace.Unification_trace.t
+  | Bindings_type_clash of Errortrace.Unification_trace.t
 
 exception Error of Location.t * Env.t * error
 exception Error_forward of Location.error

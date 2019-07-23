@@ -44,7 +44,10 @@ Error: Signature mismatch:
          f0 : unit * unit * unit * float * unit * unit * unit;
        is not compatible with:
          f0 : unit * unit * unit * int * unit * unit * unit;
-       The types are not equal.
+       Type unit * unit * unit * float * unit * unit * unit
+       is not compatible with type
+         unit * unit * unit * int * unit * unit * unit
+       Type float is not compatible with type int
 |}];;
 
 
