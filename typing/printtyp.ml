@@ -1725,6 +1725,7 @@ let type_expansion ppf = function
 
 module Unification = Errortrace.Unification
 module Equality = Errortrace.Equality
+module Moregen = Errortrace.Moregen
 
 let trees_of_trace = List.map (Errortrace.map_diff trees_of_type_expansion)
 
@@ -1777,6 +1778,10 @@ let equality_printing_status  = function
   | Equality.Escape {kind = Constraint} -> Discard
   | _ -> Keep
 
+let moregen_printing_status  = function
+  | Moregen.Diff d -> diff_printing_status d
+  | _ -> Keep
+
 (** Flatten the trace and remove elements that are always discarded
     during printing *)
 let prepare_trace drop printing_status tr =
@@ -1805,6 +1810,9 @@ let prepare_equality_trace f tr =
   in
   prepare_trace is_poly_diff equality_printing_status
     (Equality.flatten f tr)
+let prepare_moregen_trace f tr =
+  prepare_trace (fun _ -> false) moregen_printing_status
+    (Moregen.flatten f tr)
 
 (** Keep elements that are not [Diff _ ] and take the decision
     for the last element, require a prepared trace *)
@@ -1999,7 +2007,6 @@ let explain_equality intro prev env q =
       Some (dprintf "@,Types for method %s are incompatible" name)
   | Equality.Variant v -> explain_variant v
   | Equality.Obj o -> explain_object o
-
   | Equality.Escape {kind;context} ->
       let pre =
         match context with
@@ -2015,6 +2022,44 @@ let explain_equality intro prev env q =
       explain_escape pre kind
 
 let equality_mismatch = mismatch explain_equality
+
+let explain_moregen intro _prev env q =
+  let explain_variant = function
+    | Moregen.Incompatible_types_for s ->
+        Some(dprintf "@,Types for tag `%s are incompatible" s)
+    | Moregen.Missing (pos, f) ->
+        Some(dprintf "@,@[The %a object type has no method %s@]" print_pos pos f)
+    | Moregen.Openness ->
+        Some (dprintf "@,@[The second object is open and the first is not@]")
+  in
+  let explain_object = function
+    | Moregen.Missing_field (pos, f) ->
+        Some(dprintf "@,@[The %a object type has no method %s@]" print_pos pos f)
+    | Moregen.Abstract_row pos -> Some(
+        dprintf
+          "@,@[The %a object type has an abstract row, it cannot be closed@]"
+          print_pos pos
+      )
+  in
+  match q with
+  | Moregen.Diff { got = _, s; expected = _,t } -> explanation_diff env s t
+  | Moregen.Escape {kind;context} ->
+      let pre =
+        match context with
+        | Some ctx -> dprintf "@[%t@;<1 2>%a@]" intro type_expr ctx
+        | None -> ignore
+      in
+      explain_escape pre kind
+  | Moregen.Incompatible_fields { name; _ } ->
+      Some(dprintf "@,Types for method %s are incompatible" name)
+  | Moregen.Variant v -> explain_variant v
+  | Moregen.Obj o -> explain_object o
+  | Moregen.Rec_occur(x,y) ->
+      mark_loops y;
+      Some(dprintf "@,@[<hov>The type variable %a occurs inside@ %a@]"
+             type_expr x type_expr y)
+
+let moregen_mismatch = mismatch explain_moregen
 
 let explain mis ppf =
   match mis with
@@ -2133,6 +2178,35 @@ let report_equality_error ppf env tr
       ?(type_expected_explanation = fun _ -> ())
       txt1 txt2 =
   wrap_printing_env env (fun () -> equality_error env tr txt1 ppf txt2
+                                     type_expected_explanation)
+    ~error:true
+;;
+
+let moregen_error env tr txt1 ppf txt2 ty_expect_explanation =
+  let rec filter_trace keep_last = function
+    | [] -> []
+    | [Moregen.Diff d as elt]
+      when moregen_printing_status elt = Optional_refinement ->
+      if keep_last then [d] else []
+    | Moregen.Diff d :: rem -> d :: filter_trace keep_last rem
+    | _ :: rem -> filter_trace keep_last rem
+  in
+  let prepare_expansion_head empty_tr = function
+    | Moregen.Diff d ->
+      Some(Errortrace.map_diff (may_prepare_expansion empty_tr) d)
+    | _ -> None
+  in
+
+  reset ();
+  let tr = prepare_moregen_trace (fun t t' -> t, hide_variant_name t') tr in
+  let mis = moregen_mismatch txt1 env tr in
+  handle_trace filter_trace prepare_expansion_head
+    env tr "is not compatible with type" mis txt1 ppf txt2 ty_expect_explanation
+
+let report_moregen_error ppf env tr
+      ?(type_expected_explanation = fun _ -> ())
+      txt1 txt2 =
+  wrap_printing_env env (fun () -> moregen_error env tr txt1 ppf txt2
                                      type_expected_explanation)
     ~error:true
 ;;

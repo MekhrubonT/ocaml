@@ -54,6 +54,8 @@ Error: Signature mismatch:
          val create : elt -> t
        is not included in
          val create : unit -> t
+       Type elt -> t do not match with unit -> t
+       Type elt is not compatible with type unit 
        File "test_functor.ml", line 5, characters 2-23: Expected declaration
        File "test_functor.ml", line 5, characters 2-23: Actual declaration
 File "test_loc_modtype_type_subst.ml", line 3, characters 15-42:
@@ -72,5 +74,7 @@ Error: Signature mismatch:
          val create : elt -> t
        is not included in
          val create : unit -> t
+       Type elt -> t do not match with unit -> t
+       Type elt is not compatible with type unit 
        File "test_functor.ml", line 5, characters 2-23: Expected declaration
        File "test_functor.ml", line 5, characters 2-23: Actual declaration

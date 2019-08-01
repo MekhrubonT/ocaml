@@ -136,6 +136,12 @@ val report_unification_error:
     ?type_expected_explanation:(formatter -> unit) ->
     (formatter -> unit) -> (formatter -> unit) ->
     unit
+val report_moregen_error:
+    formatter -> Env.t ->
+    Errortrace.Moregen.t ->
+    ?type_expected_explanation:(formatter -> unit) ->
+    (formatter -> unit) -> (formatter -> unit) ->
+    unit
 val report_equality_error:
     formatter -> Env.t ->
     Errortrace.Equality.t ->
