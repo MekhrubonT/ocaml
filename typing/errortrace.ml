@@ -119,3 +119,60 @@ module Equality = struct
     let incompatible_fields name got expected =
       Incompatible_fields {name; diff={got; expected} }
 end
+
+module Moregen = struct
+    type variant =
+      | Missing of position * Asttypes.label
+      | Openness
+      | Incompatible_types_for of string
+
+    type obj =
+      | Missing_field of position * string
+      | Abstract_row of position
+
+    type 'a elt =
+      | Diff of 'a diff
+      | Variant of variant
+      | Obj of obj
+      | Escape of {context:type_expr option; kind: 'a escape}
+      | Incompatible_fields of {name:string; diff:type_expr diff }
+      | Rec_occur of type_expr * type_expr
+
+    type t = desc elt list
+    let diff got expected = Diff (map_diff short {got;expected})
+
+    let map_elt f = function
+      | Diff x -> Diff (map_diff f x)
+      | Escape {kind=Equation x; context} -> Escape {kind=Equation(f x); context}
+      | Rec_occur (_,_)
+      | Variant _
+      | Obj _
+      | Escape {kind=(Univ _ | Self|Constructor _ |Module_type _|Constraint); _}
+      | Incompatible_fields _ as x -> x
+    let map f = List.map (map_elt f)
+
+    let flatten f = map (flatten_desc f)
+
+    exception Moregen of t
+
+    let rec_occur x y = Moregen [Rec_occur(x, y)]
+    let incompatible_fields name got expected =
+      Incompatible_fields {name; diff={got; expected} }
+end
+
+module Subtype = struct
+  type 'a elt =
+    | Diff of 'a diff
+
+  type t = desc elt list
+
+  let diff got expected = Diff (map_diff short {got;expected})
+
+  let map_elt f = function
+    | Diff x -> Diff (map_diff f x)
+  let map f = List.map (map_elt f)
+
+  let flatten f = map (flatten_desc f)
+
+  exception Subtype of t * Unification.t
+end

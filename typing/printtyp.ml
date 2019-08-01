@@ -1725,6 +1725,8 @@ let type_expansion ppf = function
 
 module Unification = Errortrace.Unification
 module Equality = Errortrace.Equality
+module Moregen = Errortrace.Moregen
+module Subtype = Errortrace.Subtype
 
 let trees_of_trace = List.map (Errortrace.map_diff trees_of_type_expansion)
 
@@ -1777,6 +1779,12 @@ let equality_printing_status  = function
   | Equality.Escape {kind = Constraint} -> Discard
   | _ -> Keep
 
+let moregen_printing_status  = function
+  | Moregen.Diff d -> diff_printing_status d
+  | _ -> Keep
+let subtype_printing_status  = function
+  | Subtype.Diff d -> diff_printing_status d
+
 (** Flatten the trace and remove elements that are always discarded
     during printing *)
 let prepare_trace drop printing_status tr =
@@ -1805,6 +1813,12 @@ let prepare_equality_trace f tr =
   in
   prepare_trace is_poly_diff equality_printing_status
     (Equality.flatten f tr)
+let prepare_moregen_trace f tr =
+  prepare_trace (fun _ -> false) moregen_printing_status
+    (Moregen.flatten f tr)
+let prepare_subtype_trace f tr =
+  prepare_trace (fun _ -> false) subtype_printing_status
+    (Subtype.flatten f tr)
 
 (** Keep elements that are not [Diff _ ] and take the decision
     for the last element, require a prepared trace *)
@@ -2016,6 +2030,44 @@ let explain_equality intro prev env q =
 
 let equality_mismatch = mismatch explain_equality
 
+let explain_moregen intro _prev env q =
+  let explain_variant = function
+    | Moregen.Incompatible_types_for s ->
+        Some(dprintf "@,Types for tag `%s are incompatible" s)
+    | Moregen.Missing (pos, f) ->
+        Some(dprintf "@,@[The %a object type has no method %s@]" print_pos pos f)
+    | Moregen.Openness ->
+        Some (dprintf "@,@[The second object is open and the first is not@]")
+  in
+  let explain_object = function
+    | Moregen.Missing_field (pos, f) ->
+        Some(dprintf "@,@[The %a object type has no method %s@]" print_pos pos f)
+    | Moregen.Abstract_row pos -> Some(
+        dprintf
+          "@,@[The %a object type has an abstract row, it cannot be closed@]"
+          print_pos pos
+      )
+  in
+  match q with
+  | Moregen.Diff { got = _, s; expected = _,t } -> explanation_diff env s t
+  | Moregen.Escape {kind;context} ->
+      let pre =
+        match context with
+        | Some ctx -> dprintf "@[%t@;<1 2>%a@]" intro type_expr ctx
+        | None -> ignore
+      in
+      explain_escape pre kind
+  | Moregen.Incompatible_fields { name; _ } ->
+      Some(dprintf "@,Types for method %s are incompatible" name)
+  | Moregen.Variant v -> explain_variant v
+  | Moregen.Obj o -> explain_object o
+  | Moregen.Rec_occur(x,y) ->
+      mark_loops y;
+      Some(dprintf "@,@[<hov>The type variable %a occurs inside@ %a@]"
+             type_expr x type_expr y)
+
+let moregen_mismatch = mismatch explain_moregen
+
 let explain mis ppf =
   match mis with
   | None -> ()
@@ -2137,32 +2189,73 @@ let report_equality_error ppf env tr
     ~error:true
 ;;
 
-(** [trace] requires the trace to be prepared *)
-let trace fst keep_last txt ppf tr =
-  print_labels := not !Clflags.classic;
-  try match tr with
-    | elt :: tr' ->
-        let elt = match elt with
-          | Unification.Diff diff ->
-            [Errortrace.map_diff trees_of_type_expansion diff]
-          | _ -> [] in
-        let tr =
-          trees_of_trace
-          @@ List.map (Errortrace.map_diff prepare_expansion)
-          @@ filter_trace keep_last tr' in
-      if fst then trace fst txt ppf (elt @ tr)
-      else trace fst txt ppf tr;
-      print_labels := true
-  | _ -> ()
-  with exn ->
-    print_labels := true;
-    raise exn
+let moregen_error env tr txt1 ppf txt2 ty_expect_explanation =
+  let rec filter_trace keep_last = function
+    | [] -> []
+    | [Moregen.Diff d as elt]
+      when moregen_printing_status elt = Optional_refinement ->
+      if keep_last then [d] else []
+    | Moregen.Diff d :: rem -> d :: filter_trace keep_last rem
+    | _ :: rem -> filter_trace keep_last rem
+  in
+  let prepare_expansion_head empty_tr = function
+    | Moregen.Diff d ->
+      Some(Errortrace.map_diff (may_prepare_expansion empty_tr) d)
+    | _ -> None
+  in
+
+  reset ();
+  let tr = prepare_moregen_trace (fun t t' -> t, hide_variant_name t') tr in
+  let mis = moregen_mismatch txt1 env tr in
+  handle_trace filter_trace prepare_expansion_head
+    env tr "is not compatible with type" mis txt1 ppf txt2 ty_expect_explanation
+
+let report_moregen_error ppf env tr
+      ?(type_expected_explanation = fun _ -> ())
+      txt1 txt2 =
+  wrap_printing_env env (fun () -> moregen_error env tr txt1 ppf txt2
+                                     type_expected_explanation)
+    ~error:true
+;;
 
 let report_subtyping_error ppf env tr1 txt1 tr2 =
+  let trace filter_trace map_diff fst keep_last txt ppf tr =
+    print_labels := not !Clflags.classic;
+    try match tr with
+      | elt :: tr' ->
+          let elt = map_diff elt in
+          let tr =
+            trees_of_trace
+            @@ List.map (Errortrace.map_diff prepare_expansion)
+            @@ filter_trace keep_last tr' in
+          if fst then trace fst txt ppf (elt @ tr)
+          else trace fst txt ppf tr;
+          print_labels := true
+      | _ -> ()
+    with exn ->
+      print_labels := true;
+      raise exn
+  in
+  let rec subtype_filter_trace keep_last = function
+    | [] -> []
+    | [Subtype.Diff d as elt]
+      when subtype_printing_status elt = Optional_refinement ->
+        if keep_last then [d] else []
+    | Subtype.Diff d :: rem -> d :: subtype_filter_trace keep_last rem
+  in
+  let unification_map_diff elt = match elt with
+    | Unification.Diff diff ->
+      [Errortrace.map_diff trees_of_type_expansion diff]
+    | _ -> []
+  in
+  let subtype_map_diff elt = match elt with
+    | Subtype.Diff diff -> [Errortrace.map_diff trees_of_type_expansion diff]
+  in
+
   wrap_printing_env ~error:true env (fun () ->
     reset ();
     let tr1 =
-      prepare_unification_trace (fun t t' -> prepare_expansion (t, t')) tr1
+      prepare_subtype_trace (fun t t' -> prepare_expansion (t, t')) tr1
     in
     let tr2 =
       prepare_unification_trace (fun t t' -> prepare_expansion (t, t')) tr2
@@ -2170,11 +2263,13 @@ let report_subtyping_error ppf env tr1 txt1 tr2 =
     let keep_first = match tr2 with
       | [Obj _ | Variant _ | Escape _ ] | [] -> true
       | _ -> false in
-    fprintf ppf "@[<v>%a" (trace true keep_first txt1) tr1;
+    fprintf ppf "@[<v>%a"
+      (trace subtype_filter_trace subtype_map_diff true keep_first txt1) tr1;
     if tr2 = [] then fprintf ppf "@]" else
     let mis = unification_mismatch (dprintf "Within this type") env tr2 in
     fprintf ppf "%a%t%t@]"
-      (trace false (mis = None) "is not compatible with type") tr2
+      (trace filter_trace unification_map_diff false (mis = None)
+         "is not compatible with type") tr2
       (explain mis)
       Conflicts.print
   )

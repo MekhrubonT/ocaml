@@ -102,3 +102,54 @@ module Equality: sig
 
   val incompatible_fields : string -> type_expr -> type_expr -> desc elt
 end
+
+module Moregen : sig
+  type variant =
+    | Missing of position * Asttypes.label
+    | Openness
+    | Incompatible_types_for of string
+
+  type obj =
+    | Missing_field of position * string
+    | Abstract_row of position
+    (* | Self_cannot_be_closed *)
+
+  type 'a elt =
+    | Diff of 'a diff
+    | Variant of variant
+    | Obj of obj
+    | Escape of {context:type_expr option; kind: 'a escape}
+    | Incompatible_fields of {name:string; diff: type_expr diff }
+    | Rec_occur of type_expr * type_expr
+
+  type t = desc elt list
+
+  val diff: type_expr -> type_expr -> desc elt
+
+  val map : (desc -> desc) -> desc elt list -> desc elt list
+
+  (** [flatten f trace] flattens all elements of type {!desc} in
+      [trace] to either [f x.t expanded] if [x.expanded=Some expanded]
+      or [f x.t x.t] otherwise *)
+  val flatten: (type_expr -> type_expr -> 'a) -> t -> 'a elt list
+
+  exception Moregen of t
+
+  val rec_occur :  type_expr -> type_expr -> exn
+  val incompatible_fields : string -> type_expr -> type_expr -> desc elt
+end
+
+module Subtype : sig
+  type 'a elt =
+    | Diff of 'a diff
+
+  type t = desc elt list
+
+  val diff: type_expr -> type_expr -> desc elt
+
+  val map : (desc -> desc) -> desc elt list -> desc elt list
+
+  val flatten: (type_expr -> type_expr -> 'a) -> t -> 'a elt list
+
+  exception Subtype of t * Unification.t
+end

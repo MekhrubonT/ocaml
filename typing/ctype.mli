@@ -18,13 +18,14 @@
 open Asttypes
 open Types
 
-
 exception Unify of Errortrace.Unification.t
 exception Equality of Errortrace.Equality.t
+exception Moregen of Errortrace.Moregen.t
+exception Subtype of Errortrace.Subtype.t * Errortrace.Unification.t
+
 exception Escape of {kind : Errortrace.desc Errortrace.escape;
                      context : type_expr option}
 exception Tags of label * label
-exception Subtype of Errortrace.Unification.t * Errortrace.Unification.t
 exception Cannot_expand
 exception Cannot_apply
 
@@ -190,7 +191,7 @@ val deep_occur: type_expr -> type_expr -> bool
 val filter_self_method:
         Env.t -> string -> private_flag -> (Ident.t * type_expr) Meths.t ref ->
         type_expr -> Ident.t * type_expr
-val moregeneral: Env.t -> bool -> type_expr -> type_expr -> bool
+val moregeneral: Env.t -> bool -> type_expr -> type_expr -> unit
         (* Check if the first type scheme is more general than the second. *)
 
 val rigidify: type_expr -> type_expr list
@@ -209,10 +210,10 @@ type class_match_failure =
   | CM_Parameter_arity_mismatch of int * int
   | CM_Type_parameter_mismatch of Env.t * Errortrace.Equality.t
   | CM_Class_type_mismatch of Env.t * class_type * class_type
-  | CM_Parameter_mismatch of Env.t * Errortrace.Unification.t
-  | CM_Val_type_mismatch of string * Env.t * Errortrace.Unification.t
+  | CM_Parameter_mismatch of Env.t * Errortrace.Moregen.t
+  | CM_Val_type_mismatch of string * Env.t * Errortrace.Moregen.t
   | CM_Val_type_mismatch_eq of string * Env.t * Errortrace.Equality.t
-  | CM_Meth_type_mismatch of string * Env.t * Errortrace.Unification.t
+  | CM_Meth_type_mismatch of string * Env.t * Errortrace.Moregen.t
   | CM_Meth_type_mismatch_eq of string * Env.t * Errortrace.Equality.t
   | CM_Non_mutable_value of string
   | CM_Non_concrete_value of string

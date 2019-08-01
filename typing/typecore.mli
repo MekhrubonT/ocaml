@@ -142,7 +142,7 @@ type error =
   | Private_label of Longident.t * type_expr
   | Unbound_instance_variable of string * string list
   | Instance_variable_not_mutable of bool * string
-  | Not_subtype of Errortrace.Unification.t * Errortrace.Unification.t
+  | Not_subtype of Errortrace.Subtype.t * Errortrace.Unification.t
   | Outside_class
   | Value_multiply_overridden of string
   | Coercion_failure of
