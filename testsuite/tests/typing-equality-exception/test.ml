@@ -48,6 +48,30 @@ Error: Signature mismatch:
        Type 'b is not compatible with type 'a0
 |}];;
 
+module M : sig
+  type t = <m : 'b. 'b * ('b * <m:'c. 'c * 'bar> as 'bar)>
+end = struct
+  type t = <m : 'a. 'a * ('a * 'foo)> as 'foo
+end;;
+[%%expect{|
+Line 3, characters 6-62:
+3 | ......struct
+4 |   type t = <m : 'a. 'a * ('a * 'foo)> as 'foo
+5 | end..
+Error: Signature mismatch:
+       Modules do not match:
+         sig type t = < m : 'a. 'a * ('a * 'b) > as 'b end
+       is not included in
+         sig type t = < m : 'b. 'b * ('b * < m : 'c. 'c * 'a > as 'a) > end
+       Type declarations do not match:
+         type t = < m : 'a. 'a * ('a * 'b) > as 'b
+       is not included in
+         type t = < m : 'b. 'b * ('b * < m : 'c. 'c * 'a > as 'a) >
+       Type < m : 'a. 'a * ('a * 'd) > as 'd is not compatible with type
+         < m : 'b. 'b * ('b * < m : 'c. 'c * 'e > as 'e) >
+       Types for method m are incompatible
+|}];;
+
 type s = private < m : int; .. >;;
 [%%expect{|
 type s = private < m : int; .. >

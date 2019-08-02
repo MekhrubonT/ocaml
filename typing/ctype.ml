@@ -3376,8 +3376,10 @@ let rec eqtype rename type_pairs subst env t1 t2 =
           | (Tpoly (t1, []), Tpoly (t2, [])) ->
               eqtype rename type_pairs subst env t1 t2
           | (Tpoly (t1, tl1), Tpoly (t2, tl2)) ->
-              enter_poly env univar_pairs t1 tl1 t2 tl2
-                (eqtype rename type_pairs subst env)
+              (try
+                 enter_poly env univar_pairs t1 tl1 t2 tl2
+                   (eqtype rename type_pairs subst env)
+               with Unify _ -> raise (Equality []))
           | (Tunivar _, Tunivar _) ->
               (try unify_univar t1' t2' !univar_pairs (* Unify error *)
               with Unify _ -> raise (Equality []))
