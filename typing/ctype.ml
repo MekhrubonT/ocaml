@@ -3447,16 +3447,16 @@ and eqtype_row rename type_pairs subst env row1 row2 =
 
   if not row1.row_closed then
     (match r1, r2 with
-     | (lb1, _)::_, _ -> raise (Equality [Variant (Missing(lb1, Second))])
-     | _, (lb2, _)::_ -> raise (Equality [Variant (Missing(lb2, First))])
+     | (lb1, _)::_, _ -> raise (Equality [Variant (Missing (Second, lb1))])
+     | _, (lb2, _)::_ -> raise (Equality [Variant (Missing (First, lb2))])
      | _, _ -> ());
 
   (match filter_row_fields false r1 with
    | [] -> ();
-   | (lb, _) :: _ -> raise (Equality [Variant (Missing (lb, Second))]));
+   | (lb, _) :: _ -> raise (Equality [Variant (Missing (Second, lb))]));
   (match filter_row_fields false r2 with
    | [] -> ()
-   | (lb, _) :: _ -> raise (Equality [Variant (Missing (lb, First))]));
+   | (lb, _) :: _ -> raise (Equality [Variant (Missing (First, lb))]));
 
   if not (static_row row1) then
     eqtype rename type_pairs subst env row1.row_more row2.row_more;

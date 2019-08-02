@@ -1973,10 +1973,10 @@ let explain_equality _intro _prev env q =
     | Equality_trace.Incompatible_types_for s ->
         Some(dprintf "@,Types for tag `%s are incompatible" s)
     | Equality_trace.Openness ord ->
-      Some(dprintf "@,The %a is open and %a is not"
+      Some(dprintf "@,The %a is open and the %a is not"
              print_pos ord
              print_pos (swap ord))
-    | Equality_trace.Missing (l, ord) ->
+    | Equality_trace.Missing (ord, l) ->
         Some(dprintf "@,The %a declaration has no tag `%s" print_pos ord l)
   in
   let explain_object = function

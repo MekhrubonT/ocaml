@@ -91,7 +91,7 @@ module Equality_trace = struct
     type variant =
       | Incompatible_types_for of string
       | Openness of position
-      | Missing of (Asttypes.label * position)
+      | Missing of (position * Asttypes.label)
 
     type obj =
       | Missing_field of position * string
