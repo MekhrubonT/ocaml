@@ -70,7 +70,8 @@ Error: Signature mismatch:
          type t = M1.t
        is not included in
          type t = private < n : int; .. >
-       Miss field
+       Type M1.t is not compatible with type < n : int; .. >
+       The first object type has no method n
 Line 3, characters 2-51:
 3 |   struct type t = int let f (x : int) = (x : t) end;; (* must fail *)
       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

@@ -58,9 +58,6 @@ type type_mismatch =
   | Constraint of Env.t * Errortrace.Equality_trace.t
   | Manifest
   | Manifest_type of Env.t * Errortrace.Equality_trace.t
-  | Var_missing_constructor
-  | Var_extra_constructor
-  | Obj_missing_field of (string * Types.field_kind * Types.type_expr)
   | Variance
   | Record_mismatch of record_mismatch
   | Variant_mismatch of variant_mismatch

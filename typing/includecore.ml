@@ -109,9 +109,6 @@ type type_mismatch =
   | Constraint of Env.t * Equality_trace.t
   | Manifest
   | Manifest_type of Env.t * Equality_trace.t
-  | Var_missing_constructor
-  | Var_extra_constructor
-  | Obj_missing_field of (string * Types.field_kind * Types.type_expr)
   | Variance
   | Record_mismatch of record_mismatch
   | Variant_mismatch of variant_mismatch
@@ -230,9 +227,9 @@ let report_type_mismatch0 first second decl ppf err =
         (function _ ->
            pr "is not compatible with type"
         )
-  | Var_missing_constructor -> pr "Miss constr"
-  | Var_extra_constructor -> pr "Extra constr"
-  | Obj_missing_field _f -> pr "Miss field"
+  (* | Var_missing_constructor -> pr "Miss constr" *)
+  (* | Var_extra_constructor -> pr "Extra constr" *)
+  (* | Obj_missing_field _f -> pr "Miss field" *)
   | Variance -> pr "Their variances do not agree."
   | Record_mismatch err -> report_record_mismatch first second decl ppf err
   | Variant_mismatch err -> report_variant_mismatch first second decl ppf err
@@ -376,21 +373,28 @@ let type_manifest env ty1 params1 ty2 params2 priv2 =
       Ctype.merge_row_fields row1.row_fields row2.row_fields
     in
     let err = if row2.row_closed && not row1.row_closed
-      then Some Var_missing_constructor
-      else if row2.row_closed && Ctype.filter_row_fields false r1 <> []
-      then Some Var_missing_constructor
-      else None
+      then Some (Manifest_type (env, [
+        Equality_trace.diff ty1 ty2;
+        Variant (Openness First)]))
+      else match row2.row_closed, Ctype.filter_row_fields false r1 with
+        | true, (lb, _) :: _ ->
+          Some (Manifest_type (env, [
+            Equality_trace.diff ty1 ty2;
+            Variant (Missing (Second, lb))]))
+        | _, _ -> None
     in
     if err <> None then err else
 
-    let err =
-      if List.for_all
+      let err =
+        match List.find_opt
            (fun (_,f) -> match Btype.row_field_repr f with
-              | Rabsent | Reither _ -> true
-              | Rpresent _ -> false)
-           r2
-      then None
-      else Some Var_extra_constructor
+              | Rabsent | Reither _ -> false
+              | Rpresent _ -> true)
+           r2 with
+        | None -> None
+        | Some (lb, _) -> Some (Manifest_type (env, [
+            Equality_trace.diff ty1 ty2;
+            Variant (Missing (First, lb))]))
     in
     if err <> None then err else
 
@@ -438,7 +442,9 @@ let type_manifest env ty1 params1 ty2 params2 priv2 =
       let pairs, _miss1, miss2 = Ctype.associate_fields fields1 fields2 in
       let err = match miss2 with
         | [] -> None
-        | hd :: _ -> Some (Obj_missing_field hd)
+        | (f, _, _) :: _ -> Some (Manifest_type (env, [
+            Equality_trace.diff ty1 ty2;
+            Obj (Missing_field (First, f))]))
       in
       if err <> None then err else
 

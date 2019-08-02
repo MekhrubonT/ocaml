@@ -21,7 +21,8 @@ Error: Signature mismatch:
          type t = [ `C ]
        is not included in
          type t = private [< `A | `B ]
-       Miss constr
+       Type [ `C ] is not compatible with type [< `A | `B ]
+       The second declaration has no tag `C
 |}];;
 
 module M : sig
@@ -43,7 +44,8 @@ Error: Signature mismatch:
          type t = private [> `A ]
        is not included in
          type t = private [< `A | `B ]
-       Miss constr
+       Type [> `A ] is not compatible with type [< `A | `B ]
+       The first is open and the second is not
 |}];;
 
 module M : sig
@@ -65,7 +67,8 @@ Error: Signature mismatch:
          type t = [ `B ]
        is not included in
          type t = private [< `A | `B > `A ]
-       Extra constr
+       Type [ `B ] is not compatible with type [< `A | `B > `A ]
+       The first declaration has no tag `A
 |}];;
 
 module M : sig
@@ -195,7 +198,8 @@ Error: Signature mismatch:
          type t = < b : int >
        is not included in
          type t = private < a : int; .. >
-       Miss field
+       Type < b : int > is not compatible with type < a : int; .. >
+       The first object type has no method a
 |}];;
 
 module M : sig
