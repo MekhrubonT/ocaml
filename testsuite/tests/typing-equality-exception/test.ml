@@ -351,7 +351,7 @@ Error: Signature mismatch:
        is not included in
          type t = private [> `A of int ]
        Type [ `A of int ] is not compatible with type [> `A of int ]
-       The first is open and second is not
+       The first is open and the second is not
 |}];;
 
 module M : sig
@@ -374,7 +374,7 @@ Error: Signature mismatch:
        is not included in
          type t = private [ `A of int ]
        Type [> `A of int ] is not compatible with type [ `A of int ]
-       The second is open and first is not
+       The second is open and the first is not
 |}];;
 
 module M : sig
