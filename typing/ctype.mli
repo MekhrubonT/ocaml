@@ -19,10 +19,10 @@ open Asttypes
 open Types
 
 
-exception Unify of Errortrace.Unification_trace.t
-exception Equality of Errortrace.Equality_trace.t
+exception Unify of Errortrace.Unification.t
+exception Equality of Errortrace.Equality.t
 exception Tags of label * label
-exception Subtype of Errortrace.Unification_trace.t * Errortrace.Unification_trace.t
+exception Subtype of Errortrace.Unification.t * Errortrace.Unification.t
 exception Cannot_expand
 exception Cannot_apply
 
@@ -205,13 +205,13 @@ val reify_univars : Types.type_expr -> Types.type_expr
 type class_match_failure =
     CM_Virtual_class
   | CM_Parameter_arity_mismatch of int * int
-  | CM_Type_parameter_mismatch of Env.t * Errortrace.Equality_trace.t
+  | CM_Type_parameter_mismatch of Env.t * Errortrace.Equality.t
   | CM_Class_type_mismatch of Env.t * class_type * class_type
-  | CM_Parameter_mismatch of Env.t * Errortrace.Unification_trace.t
-  | CM_Val_type_mismatch of string * Env.t * Errortrace.Unification_trace.t
-  | CM_Val_type_mismatch_eq of string * Env.t * Errortrace.Equality_trace.t
-  | CM_Meth_type_mismatch of string * Env.t * Errortrace.Unification_trace.t
-  | CM_Meth_type_mismatch_eq of string * Env.t * Errortrace.Equality_trace.t
+  | CM_Parameter_mismatch of Env.t * Errortrace.Unification.t
+  | CM_Val_type_mismatch of string * Env.t * Errortrace.Unification.t
+  | CM_Val_type_mismatch_eq of string * Env.t * Errortrace.Equality.t
+  | CM_Meth_type_mismatch of string * Env.t * Errortrace.Unification.t
+  | CM_Meth_type_mismatch_eq of string * Env.t * Errortrace.Equality.t
   | CM_Non_mutable_value of string
   | CM_Non_concrete_value of string
   | CM_Missing_value of string

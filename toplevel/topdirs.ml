@@ -556,8 +556,10 @@ let () =
   reg_show_prim "show_exception"
     (fun env loc id lid ->
        let desc = Typetexp.find_constructor env loc lid in
-       (try Ctype.equal env true [desc.cstr_res] [Predef.type_exn]
-        with Ctype.Equality _ -> raise Not_found);
+       begin
+         try Ctype.equal env true [desc.cstr_res] [Predef.type_exn]
+         with Ctype.Equality _ -> raise Not_found
+       end;
        let ret_type =
          if desc.cstr_generalized then Some Predef.type_exn
          else None

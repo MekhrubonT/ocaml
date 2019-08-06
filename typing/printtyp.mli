@@ -129,22 +129,22 @@ val type_expansion: type_expr -> Format.formatter -> type_expr -> unit
 val prepare_expansion: type_expr * type_expr -> type_expr * type_expr
 val trace:
   bool -> bool-> string -> formatter
-  -> (type_expr * type_expr) Errortrace.Unification_trace.elt list -> unit
+  -> (type_expr * type_expr) Errortrace.Unification.elt list -> unit
 val report_unification_error:
     formatter -> Env.t ->
-    Errortrace.Unification_trace.t ->
+    Errortrace.Unification.t ->
     ?type_expected_explanation:(formatter -> unit) ->
     (formatter -> unit) -> (formatter -> unit) ->
     unit
 val report_equality_error:
     formatter -> Env.t ->
-    Errortrace.Equality_trace.t ->
+    Errortrace.Equality.t ->
     ?type_expected_explanation:(formatter -> unit) ->
     (formatter -> unit) -> (formatter -> unit) ->
     unit
 val report_subtyping_error:
-    formatter -> Env.t -> Errortrace.Unification_trace.t -> string
-    -> Errortrace.Unification_trace.t -> unit
+    formatter -> Env.t -> Errortrace.Unification.t -> string
+    -> Errortrace.Unification.t -> unit
 val report_ambiguous_type_error:
     formatter -> Env.t -> (Path.t * Path.t) -> (Path.t * Path.t) list ->
     (formatter -> unit) -> (formatter -> unit) -> (formatter -> unit) -> unit

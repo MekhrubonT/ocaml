@@ -21,7 +21,7 @@ open Types
 exception Dont_match
 
 type label_mismatch =
-  | Type of Env.t * Errortrace.Equality_trace.t
+  | Type of Env.t * Errortrace.Equality.t
   | Mutable of bool
 
 type record_mismatch =
@@ -31,7 +31,7 @@ type record_mismatch =
   | Representation of bool   (* true means second one is unboxed float *)
 
 type constructor_mismatch =
-  | Type of Env.t * Errortrace.Equality_trace.t
+  | Type of Env.t * Errortrace.Equality.t
   | Arity
   | Record of record_mismatch
   | Kind of bool
@@ -55,9 +55,9 @@ type type_mismatch =
   | Arity
   | Privacy
   | Kind
-  | Constraint of Env.t * Errortrace.Equality_trace.t
+  | Constraint of Env.t * Errortrace.Equality.t
   | Manifest
-  | Manifest_type of Env.t * Errortrace.Equality_trace.t
+  | Manifest_type of Env.t * Errortrace.Equality.t
   | Variance
   | Record_mismatch of record_mismatch
   | Variant_mismatch of variant_mismatch

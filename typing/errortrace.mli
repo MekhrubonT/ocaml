@@ -8,7 +8,7 @@ type 'a diff = { got: 'a; expected: 'a}
 (** [map_diff f {expected;got}] is [{expected=f expected; got=f got}] *)
 val map_diff: ('a -> 'b) -> 'a diff -> 'b diff
 
-module Unification_trace: sig
+module Unification: sig
   (** Unification traces are used to explain unification errors
       when printing error messages *)
 
@@ -53,6 +53,8 @@ module Unification_trace: sig
   (** Switch [expected] and [got] *)
   val swap: t -> t
 
+  exception Unify of t
+
   val scope_escape : Types.type_expr -> exn
 
   val escape : 'a escape -> 'a elt
@@ -64,9 +66,7 @@ module Unification_trace: sig
   val incompatible_fields : string -> type_expr -> type_expr -> desc elt
 end
 
-exception Unify of Unification_trace.t
-
-module Equality_trace: sig
+module Equality: sig
   (** Unification traces are used to explain unification errors
       when printing error messages *)
 
@@ -96,9 +96,9 @@ module Equality_trace: sig
       or [f x.t x.t] otherwise *)
   val flatten: (type_expr -> type_expr -> 'a) -> t -> 'a elt list
 
+  exception Equality of t
+
   val map : (desc -> desc) -> desc elt list -> desc elt list
 
   val incompatible_fields : string -> type_expr -> type_expr -> desc elt
 end
-
-exception Equality of Equality_trace.t

@@ -52,9 +52,9 @@ Error: Signature mismatch:
          type u = A of t/2
        Constructors do not match:
          A of t/1
-       is not compatible with:
+       is not equal to:
          A of t/2
-       Type t/1 is not compatible with type t/2
+       Type t/1 is not equal to type t/2
        Line 4, characters 9-19:
          Definition of type t/1
        Line 2, characters 2-11:
@@ -119,9 +119,9 @@ Error: Signature mismatch:
          type t = A of T/2.t
        Constructors do not match:
          A of T/1.t
-       is not compatible with:
+       is not equal to:
          A of T/2.t
-       Type T/1.t is not compatible with type T/2.t
+       Type T/1.t is not equal to type T/2.t
        Line 5, characters 6-34:
          Definition of module T/1
        Line 2, characters 2-30:
@@ -330,7 +330,7 @@ Error: Signature mismatch:
          type a = M/1.t
        is not included in
          type a = M/2.t
-       Type M/1.t is not compatible with type M/2.t
+       Type M/1.t is not equal to type M/2.t
        Line 2, characters 14-42:
          Definition of module M/1
        File "_none_", line 1:

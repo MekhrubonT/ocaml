@@ -20,8 +20,8 @@ Line 4, characters 0-97:
 Error: This variant or record definition does not match that of type 'a t
        Constructors do not match:
          Same : 'l t -> 'l t
-       is not compatible with:
+       is not equal to:
          Same : 'l1 t -> 'l2 t
-       Type 'l t is not compatible with type 'l1 t
-       Type 'l is not compatible with type 'l1
+       Type 'l t is not equal to type 'l1 t
+       Type 'l is not equal to type 'l1
 |}];;

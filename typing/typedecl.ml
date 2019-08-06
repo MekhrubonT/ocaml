@@ -35,8 +35,8 @@ type error =
   | Cycle_in_def of string * type_expr
   | Definition_mismatch of type_expr * Includecore.type_mismatch option
   | Constraint_failed of type_expr * type_expr
-  | Inconsistent_constraint of Env.t * Errortrace.Unification_trace.t
-  | Type_clash of Env.t * Errortrace.Unification_trace.t
+  | Inconsistent_constraint of Env.t * Errortrace.Unification.t
+  | Type_clash of Env.t * Errortrace.Unification.t
   | Parameters_differ of Path.t * type_expr * type_expr
   | Null_arity_external
   | Missing_native_external
@@ -44,7 +44,7 @@ type error =
   | Cannot_extend_private_type of Path.t
   | Not_extensible_type of Path.t
   | Extension_mismatch of Path.t * Includecore.type_mismatch
-  | Rebind_wrong_type of Longident.t * Env.t * Errortrace.Unification_trace.t
+  | Rebind_wrong_type of Longident.t * Env.t * Errortrace.Unification.t
   | Rebind_mismatch of Longident.t * Path.t * Path.t
   | Rebind_private of Longident.t
   | Variance of Typedecl_variance.error
@@ -1077,10 +1077,12 @@ let transl_extension_constructor env type_path type_params
              (Tconstr(type_path, type_params, ref Mnil)))
           :: type_params
         in
-        (try Ctype.equal env true cstr_types ext_types
-        with Ctype.Equality _ ->
-          raise (Error(lid.loc,
-                       Rebind_mismatch(lid.txt, cstr_type_path, type_path))));
+        begin
+          try Ctype.equal env true cstr_types ext_types
+          with Ctype.Equality _ ->
+            raise (Error(lid.loc,
+                         Rebind_mismatch(lid.txt, cstr_type_path, type_path)))
+        end;
         (* Disallow rebinding private constructors to non-private *)
         begin
           match cdescr.cstr_private, priv with

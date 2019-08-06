@@ -21,7 +21,7 @@ let flatten_desc f x = match x.expanded with
 
 let swap_diff x = { got = x.expected; expected = x.got }
 
-module Unification_trace = struct
+module Unification = struct
   type 'a escape =
     | Constructor of Path.t
     | Univ of type_expr
@@ -83,11 +83,8 @@ module Unification_trace = struct
   let incompatible_fields name got expected =
     Incompatible_fields {name; diff={got; expected} }
 end
-module Trace = Unification_trace
 
-exception Unify = Trace.Unify
-
-module Equality_trace = struct
+module Equality = struct
     type variant =
       | Incompatible_types_for of string
       | Openness of position
@@ -120,5 +117,3 @@ module Equality_trace = struct
     let incompatible_fields name got expected =
       Incompatible_fields {name; diff={got; expected} }
 end
-
-exception Equality = Equality_trace.Equality

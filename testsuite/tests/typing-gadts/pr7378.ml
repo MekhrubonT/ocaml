@@ -21,10 +21,10 @@ Line 2, characters 2-54:
 Error: This variant or record definition does not match that of type X.t
        Constructors do not match:
          A : 'a * 'b * ('a -> unit) -> X.t
-       is not compatible with:
+       is not equal to:
          A : 'a * 'b * ('b -> unit) -> X.t
-       Type 'a -> unit is not compatible with type 'b -> unit
-       Type 'a is not compatible with type 'b
+       Type 'a -> unit is not equal to type 'b -> unit
+       Type 'a is not equal to type 'b
 |}]
 
 (* would segfault

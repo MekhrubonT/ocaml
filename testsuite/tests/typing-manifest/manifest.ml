@@ -21,7 +21,7 @@ Error: Signature mismatch:
          type t = [ `C ]
        is not included in
          type t = private [< `A | `B ]
-       Type [ `C ] is not compatible with type [< `A | `B ]
+       Type [ `C ] is not equal to type [< `A | `B ]
        The second declaration has no tag `C
 |}];;
 
@@ -44,7 +44,7 @@ Error: Signature mismatch:
          type t = private [> `A ]
        is not included in
          type t = private [< `A | `B ]
-       Type [> `A ] is not compatible with type [< `A | `B ]
+       Type [> `A ] is not equal to type [< `A | `B ]
        The first is open and the second is not
 |}];;
 
@@ -67,7 +67,7 @@ Error: Signature mismatch:
          type t = [ `B ]
        is not included in
          type t = private [< `A | `B > `A ]
-       Type [ `B ] is not compatible with type [< `A | `B > `A ]
+       Type [ `B ] is not equal to type [< `A | `B > `A ]
        The first declaration has no tag `A
 |}];;
 
@@ -176,7 +176,7 @@ Error: Signature mismatch:
          type t = [ `A of float ]
        is not included in
          type t = private [> `A of int ]
-       Type float is not compatible with type int
+       Type float is not equal to type int
 |}];;
 
 module M : sig
@@ -198,7 +198,7 @@ Error: Signature mismatch:
          type t = < b : int >
        is not included in
          type t = private < a : int; .. >
-       Type < b : int > is not compatible with type < a : int; .. >
+       Type < b : int > is not equal to type < a : int; .. >
        The first object type has no method a
 |}];;
 
@@ -221,7 +221,7 @@ Error: Signature mismatch:
          type t = < a : int >
        is not included in
          type t = private < a : float; .. >
-       Type int is not compatible with type float
+       Type int is not equal to type float
 |}];;
 
 type w = private float
@@ -249,8 +249,8 @@ Error: Signature mismatch:
          type t = private u
        is not included in
          type t = private int * (int * int)
-       Type int * q is not compatible with type int * (int * int)
-       Type q is not compatible with type int * int
+       Type int * q is not equal to type int * (int * int)
+       Type q is not equal to type int * int
 |}];;
 
 type w = float
@@ -278,8 +278,8 @@ Error: Signature mismatch:
          type t = private u
        is not included in
          type t = private int * (int * int)
-       Type int * q is not compatible with type int * (int * int)
-       Type w is not compatible with type int
+       Type int * q is not equal to type int * (int * int)
+       Type w is not equal to type int
 |}];;
 
 type s = private int
@@ -304,5 +304,5 @@ Error: Signature mismatch:
          type t = private s
        is not included in
          type t = private float
-       Type int is not compatible with type float
+       Type int is not equal to type float
 |}];;
