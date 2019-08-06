@@ -1769,10 +1769,12 @@ let diff_printing_status { Errortrace.got=t1, t1'; expected=t2, t2'} =
 
 let unification_printing_status = function
   | Unification.Diff d -> diff_printing_status d
+  | Unification.Escape {kind = Constraint} -> Discard
   | _ -> Keep
 
 let equality_printing_status  = function
   | Equality.Diff d -> diff_printing_status d
+  | Equality.Escape {kind = Constraint} -> Discard
   | _ -> Keep
 
 (** Flatten the trace and remove elements that are always discarded
@@ -1879,6 +1881,29 @@ let print_pos ppf = function
   | Errortrace.First -> fprintf ppf "first"
   | Errortrace.Second -> fprintf ppf "second"
 
+let explain_escape pre = function
+  | Errortrace.Univ u ->  Some(
+      dprintf "%t@,The universal variable %a would escape its scope"
+        pre type_expr u)
+  | Errortrace.Constructor p -> Some(
+      dprintf
+        "%t@,@[The type constructor@;<1 2>%a@ would escape its scope@]"
+        pre path p
+    )
+  | Errortrace.Module_type p -> Some(
+      dprintf
+        "%t@,@[The module type@;<1 2>%a@ would escape its scope@]"
+        pre path p
+    )
+  | Errortrace.Equation (_,t) -> Some(
+      dprintf "%t @,@[<hov>This instance of %a is ambiguous:@ %s@]"
+        pre type_expr t
+        "it would escape the scope of its equation"
+    )
+  | Errortrace.Self ->
+      Some (dprintf "%t@,Self type cannot escape its class" pre)
+  | Errortrace.Constraint ->
+      Some (dprintf "%t@,###########Constraint##########" pre)
 
 let unification_explanation intro prev env q =
   let explain_variant = function
@@ -1892,38 +1917,6 @@ let unification_explanation intro prev env q =
       )
     | Unification.Incompatible_types_for s ->
         Some(dprintf "@,Types for tag `%s are incompatible" s)
-  in
-
-  let explain_escape intro prev ctx e =
-    let pre = match ctx with
-      | Some ctx ->  dprintf "@[%t@;<1 2>%a@]" intro type_expr ctx
-      | None -> match e, prev with
-        | Unification.(Univ _, Some(Incompatible_fields {name; diff})) ->
-            dprintf "@,@[The method %s has type@ %a,@ \
-                     but the expected method type was@ %a@]" name
-              type_expr diff.got type_expr diff.expected
-        | _ -> ignore in
-    match e with
-    | Unification.Univ u ->  Some(
-        dprintf "%t@,The universal variable %a would escape its scope"
-          pre type_expr u)
-    | Unification.Constructor p -> Some(
-        dprintf
-          "%t@,@[The type constructor@;<1 2>%a@ would escape its scope@]"
-          pre path p
-      )
-    | Unification.Module_type p -> Some(
-        dprintf
-          "%t@,@[The module type@;<1 2>%a@ would escape its scope@]"
-          pre path p
-      )
-    | Unification.Equation (_,t) -> Some(
-        dprintf "%t @,@[<hov>This instance of %a is ambiguous:@ %s@]"
-          pre type_expr t
-          "it would escape the scope of its equation"
-      )
-    | Unification.Self ->
-        Some (dprintf "%t@,Self type cannot escape its class" pre)
   in
 
   let explain_object = function
@@ -1942,7 +1935,18 @@ let unification_explanation intro prev env q =
   | Unification.Diff { Errortrace.got = _, s; expected = _,t } ->
       explanation_diff env s t
   | Unification.Escape {kind;context} ->
-      explain_escape intro prev context kind
+      let pre =
+        match context with
+        | Some ctx ->  dprintf "@[%t@;<1 2>%a@]" intro type_expr ctx
+        | None -> match kind, prev with
+          | Errortrace.Univ _,
+            Some(Unification.Incompatible_fields {name; diff}) ->
+            dprintf "@,@[The method %s has type@ %a,@ \
+                     but the expected method type was@ %a@]" name
+              type_expr diff.got type_expr diff.expected
+          | _ -> ignore
+      in
+      explain_escape pre kind
   | Unification.Incompatible_fields { name; _ } ->
         Some(dprintf "@,Types for method %s are incompatible" name)
   | Unification.Variant v -> explain_variant v
@@ -1964,7 +1968,7 @@ let mismatch explanation intro env trace =
 
 let unification_mismatch = mismatch unification_explanation
 
-let explain_equality _intro _prev env q =
+let explain_equality intro prev env q =
   let swap = Errortrace.(function
     | First -> Second
     | Second -> First)
@@ -1996,6 +2000,19 @@ let explain_equality _intro _prev env q =
   | Equality.Variant v -> explain_variant v
   | Equality.Obj o -> explain_object o
 
+  | Equality.Escape {kind;context} ->
+      let pre =
+        match context with
+        | Some ctx ->  dprintf "@[%t@;<1 2>%a@]" intro type_expr ctx
+        | None -> match kind, prev with
+          | Errortrace.Univ _,
+            Some(Equality.Incompatible_fields {name; diff}) ->
+              dprintf "@,@[The method %s has type@ %a,@ \
+                   but the expected method type was@ %a@]" name
+              type_expr diff.got type_expr diff.expected
+          | _ -> ignore
+      in
+      explain_escape pre kind
 
 let equality_mismatch = mismatch explain_equality
 

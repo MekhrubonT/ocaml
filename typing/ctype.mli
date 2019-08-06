@@ -21,6 +21,8 @@ open Types
 
 exception Unify of Errortrace.Unification.t
 exception Equality of Errortrace.Equality.t
+exception Escape of {kind : Errortrace.desc Errortrace.escape;
+                     context : type_expr option}
 exception Tags of label * label
 exception Subtype of Errortrace.Unification.t * Errortrace.Unification.t
 exception Cannot_expand

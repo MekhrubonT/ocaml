@@ -8,19 +8,22 @@ type 'a diff = { got: 'a; expected: 'a}
 (** [map_diff f {expected;got}] is [{expected=f expected; got=f got}] *)
 val map_diff: ('a -> 'b) -> 'a diff -> 'b diff
 
+(** Scope escape related errors *)
+type 'a escape =
+  | Constructor of Path.t
+  | Univ of type_expr
+  (* The type_expr argument of [Univ] is always a [Tunivar _],
+     we keep a [type_expr] to track renaming in {!Printtyp} *)
+  | Self
+  | Module_type of Path.t
+  | Equation of 'a
+  | Constraint
+
+val short : type_expr -> desc
+
 module Unification: sig
   (** Unification traces are used to explain unification errors
       when printing error messages *)
-
-     (** Scope escape related errors *)
-    type 'a escape =
-    | Constructor of Path.t
-    | Univ of type_expr
-    (** The type_expr argument of [Univ] is always a [Tunivar _],
-        we keep a [type_expr] to track renaming in {!Printtyp} *)
-    | Self
-    | Module_type of Path.t
-    | Equation of 'a
 
    (** Errors for polymorphic variants *)
   type variant =
@@ -55,10 +58,6 @@ module Unification: sig
 
   exception Unify of t
 
-  val scope_escape : Types.type_expr -> exn
-
-  val escape : 'a escape -> 'a elt
-
   val rec_occur :  type_expr -> type_expr -> exn
 
   val map : (desc -> desc) -> desc elt list -> desc elt list
@@ -85,6 +84,7 @@ module Equality: sig
     | Diff of 'a diff
     | Variant of variant
     | Obj of obj
+    | Escape of {context: type_expr option; kind:'a escape}
     | Incompatible_fields of {name:string; diff: type_expr diff }
 
   type t = desc elt list
