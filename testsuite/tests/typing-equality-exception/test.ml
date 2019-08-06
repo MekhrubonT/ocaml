@@ -69,7 +69,9 @@ Error: Signature mismatch:
          type t = < m : 'b. 'b * ('b * < m : 'c. 'c * 'a > as 'a) >
        Type < m : 'a. 'a * ('a * 'd) > as 'd is not equal to type
          < m : 'b. 'b * ('b * < m : 'c. 'c * 'e > as 'e) >
-       Types for method m are incompatible
+       The method m has type 'a. 'a * ('a * 'd),
+       but the expected method type was 'c. 'c * 'e
+       The universal variable 'b would escape its scope
 |}];;
 
 type s = private < m : int; .. >;;

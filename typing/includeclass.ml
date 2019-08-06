@@ -70,13 +70,13 @@ let include_err ppf =
           "is not matched by the class type"
           Printtyp.class_type cty2)
   | CM_Parameter_mismatch (env, trace) ->
-      Printtyp.report_unification_error ppf env trace
+      Printtyp.report_moregen_error ppf env trace
         (function ppf ->
           fprintf ppf "A parameter has type")
         (function ppf ->
           fprintf ppf "but is expected to have type")
   | CM_Val_type_mismatch (lab, env, trace) ->
-      Printtyp.report_unification_error ppf env trace
+      Printtyp.report_moregen_error ppf env trace
         (function ppf ->
           fprintf ppf "The instance variable %s@ has type" lab)
         (function ppf ->
@@ -88,7 +88,7 @@ let include_err ppf =
         (function ppf ->
            fprintf ppf "but is expected to have type")
   | CM_Meth_type_mismatch (lab, env, trace) ->
-      Printtyp.report_unification_error ppf env trace
+      Printtyp.report_moregen_error ppf env trace
         (function ppf ->
           fprintf ppf "The method %s@ has type" lab)
         (function ppf ->

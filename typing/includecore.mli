@@ -18,7 +18,7 @@
 open Typedtree
 open Types
 
-exception Dont_match
+exception Dont_match of Errortrace.Moregen.t option
 
 type label_mismatch =
   | Type of Env.t * Errortrace.Equality.t

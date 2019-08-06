@@ -43,10 +43,9 @@ Error: Signature mismatch:
        Values do not match:
          val r : '_weak1 list ref ref
        is not included in
-         val r : Choice.t list ref refType 'weak1 list ref ref
-                                      do not match with Choice.t list ref ref
-                                      The type constructor Choice.t
-                                      would escape its scope
+         val r : Choice.t list ref ref
+       Type 'weak1 list ref ref do not match with Choice.t list ref ref
+       The type constructor Choice.t would escape its scope
 |}];;
 
 module O = struct
@@ -72,10 +71,9 @@ Error: Signature mismatch:
        Values do not match:
          val f : (module s/1) -> unit
        is not included in
-         val f : (module s/2) -> unitType (module s/1) -> unit
-                                     do not match with (module s/2) -> unit
-                                     Type (module s/1)
-                                     is not compatible with type (module s/2)
+         val f : (module s/2) -> unit
+       Type (module s/1) -> unit do not match with (module s/2) -> unit
+       Type (module s/1) is not compatible with type (module s/2)
        Line 6, characters 4-17:
          Definition of module type s/1
        Line 2, characters 2-15:
@@ -100,22 +98,10 @@ Error: Signature mismatch:
        Values do not match:
          val f : (< m : 'a. 'a * 'b > as 'b) -> unit
        is not included in
-         val f : < m : 'b. 'b * < m : 'c. 'c * 'a > as 'a > -> unitType
-                                                                    (< m :
-                                                                    'a.
-                                                                    'a * 'd >
-                                                                    as 'd) ->
-                                                                    unit
-                                                                   do not match with
-                                                                    < m :
-                                                                    'b.
-                                                                    'b *
-                                                                    < m :
-                                                                    'c.
-                                                                    'c * 'e >
-                                                                    as 'e > ->
-                                                                    unit
-                                                                   The universal variable 'b would escape its scope
+         val f : < m : 'b. 'b * < m : 'c. 'c * 'a > as 'a > -> unit
+       Type (< m : 'a. 'a * 'd > as 'd) -> unit do not match with
+         < m : 'b. 'b * < m : 'c. 'c * 'e > as 'e > -> unit
+       The universal variable 'b would escape its scope
 |}];;
 
 type s = private < m : int; .. >;;
@@ -139,9 +125,9 @@ Error: Signature mismatch:
        Values do not match:
          val f : < m : int > -> < m : int >
        is not included in
-         val f : s -> sType < m : int > -> < m : int > do not match with
-                         s -> s
-                       The second object type has an abstract row, it cannot be closed
+         val f : s -> s
+       Type < m : int > -> < m : int > do not match with s -> s
+       The second object type has an abstract row, it cannot be closed
 |}];;
 
 module M : sig
@@ -162,9 +148,9 @@ Error: Signature mismatch:
        Values do not match:
          val x : '_weak2 list ref
        is not included in
-         val x : 'a list refType 'weak2 list ref do not match with
-                              'a list ref
-                            Type 'weak2 is not compatible with type 'a
+         val x : 'a list ref
+       Type 'weak2 list ref do not match with 'a list ref
+       Type 'weak2 is not compatible with type 'a
 |}];;
 
 module M = struct let r = ref [] end;;
@@ -184,8 +170,9 @@ Error: Signature mismatch:
        Values do not match:
          val r : '_weak3 list ref
        is not included in
-         val r : t list refType 'weak3 list ref do not match with t list ref
-                           The type constructor t would escape its scope
+         val r : t list ref
+       Type 'weak3 list ref do not match with t list ref
+       The type constructor t would escape its scope
 |}];;
 
 type (_, _) eq = Refl : ('a, 'a) eq;;
@@ -236,8 +223,9 @@ Error: Signature mismatch:
        Values do not match:
          val f : 'a -> 'a
        is not included in
-         val f : int -> floatType int -> int do not match with int -> float
-                             Type int is not compatible with type float
+         val f : int -> float
+       Type int -> int do not match with int -> float
+       Type int is not compatible with type float
 |}];;
 
 module M: sig
@@ -258,13 +246,10 @@ Error: Signature mismatch:
        Values do not match:
          val f : int * int -> int * int
        is not included in
-         val f : int * float * int -> int -> intType int * int -> int * int
-                                                do not match with
-                                                  int * float * int ->
-                                                  int -> int
-                                                Type int * int
-                                                is not compatible with type
-                                                  int * float * int
+         val f : int * float * int -> int -> int
+       Type int * int -> int * int do not match with
+         int * float * int -> int -> int
+       Type int * int is not compatible with type int * float * int
 |}];;
 
 module M: sig
@@ -285,25 +270,10 @@ Error: Signature mismatch:
        Values do not match:
          val f : < f : float; m : int > -> < f : float; m : int >
        is not included in
-         val f : < m : int; n : float > -> < m : int; n : float >Type
-                                                                   < f :
-                                                                    float;
-                                                                    m :
-                                                                    int > ->
-                                                                   < f :
-                                                                    float;
-                                                                    m :
-                                                                    int >
-                                                                 do not match with
-                                                                   < m :
-                                                                    int;
-                                                                    n :
-                                                                    float > ->
-                                                                   < m :
-                                                                    int;
-                                                                    n :
-                                                                    float >
-                                                                 The second object type has no method f
+         val f : < m : int; n : float > -> < m : int; n : float >
+       Type < f : float; m : int > -> < f : float; m : int >
+       do not match with < m : int; n : float > -> < m : int; n : float >
+       The second object type has no method f
 |}];;
 
 module M : sig
@@ -324,9 +294,9 @@ Error: Signature mismatch:
        Values do not match:
          val f : [ `Bar | `Foo ] -> unit
        is not included in
-         val f : [ `Foo ] -> unitType [ `Bar | `Foo ] -> unit
-                                 do not match with [ `Foo ] -> unit
-                                 The second object type has no method Bar
+         val f : [ `Foo ] -> unit
+       Type [ `Bar | `Foo ] -> unit do not match with [ `Foo ] -> unit
+       The second object type has no method Bar
 |}];;
 
 module M : sig
@@ -347,9 +317,9 @@ Error: Signature mismatch:
        Values do not match:
          val f : [< `Foo ] -> unit
        is not included in
-         val f : [> `Foo ] -> unitType [< `Foo ] -> unit do not match with
-                                    [> `Foo ] -> unit
-                                  The second object is open and the first is not
+         val f : [> `Foo ] -> unit
+       Type [< `Foo ] -> unit do not match with [> `Foo ] -> unit
+       The second object is open and the first is not
 |}];;
 
 module M : sig
@@ -370,10 +340,9 @@ Error: Signature mismatch:
        Values do not match:
          val f : [< `Foo ] -> unit
        is not included in
-         val f : [< `Bar | `Foo ] -> unitType [< `Foo ] -> unit
-                                         do not match with
-                                           [< `Bar | `Foo ] -> unit
-                                         The first object type has no method Bar
+         val f : [< `Bar | `Foo ] -> unit
+       Type [< `Foo ] -> unit do not match with [< `Bar | `Foo ] -> unit
+       The first object type has no method Bar
 |}];;
 
 module M : sig
@@ -394,12 +363,10 @@ Error: Signature mismatch:
        Values do not match:
          val f : < m : 'a. [< `Foo ] as 'a > -> unit
        is not included in
-         val f : < m : [< `Foo ] > -> unitType
-                                            < m : 'a. [< `Foo ] as 'a > ->
-                                            unit
-                                          do not match with
-                                            < m : [< `Foo ] > -> unit
-                                          Types for method m are incompatible
+         val f : < m : [< `Foo ] > -> unit
+       Type < m : 'a. [< `Foo ] as 'a > -> unit do not match with
+         < m : [< `Foo ] > -> unit
+       Types for method m are incompatible
 |}];;
 
 module M : sig
@@ -420,14 +387,10 @@ Error: Signature mismatch:
        Values do not match:
          val f : < m : [ `Foo ] > -> unit
        is not included in
-         val f : < m : 'a. [< `Foo ] as 'a > -> unitType
-                                                      < m : [ `Foo ] > ->
-                                                      unit
-                                                    do not match with
-                                                      < m : 'a.
-                                                              [< `Foo ] as 'a > ->
-                                                      unit
-                                                    Types for method m are incompatible
+         val f : < m : 'a. [< `Foo ] as 'a > -> unit
+       Type < m : [ `Foo ] > -> unit do not match with
+         < m : 'a. [< `Foo ] as 'a > -> unit
+       Types for method m are incompatible
 |}];;
 
 module M : sig
@@ -448,9 +411,10 @@ Error: Signature mismatch:
        Values do not match:
          val f : [< `C of int & float ] -> unit
        is not included in
-         val f : [< `C ] -> unitType ([< `C of & int & float ] as 'a) -> unit
-                                do not match with 'a -> unit
-                                Types for tag `C are incompatible
+         val f : [< `C ] -> unit
+       Type ([< `C of & int & float ] as 'a) -> unit do not match with
+         'a -> unit
+       Types for tag `C are incompatible
 |}];;
 
 module M : sig
@@ -471,9 +435,9 @@ Error: Signature mismatch:
        Values do not match:
          val f : [ `Foo of int ] -> unit
        is not included in
-         val f : [ `Foo ] -> unitType [ `Foo of int ] -> unit
-                                 do not match with [ `Foo ] -> unit
-                                 Types for tag `Foo are incompatible
+         val f : [ `Foo ] -> unit
+       Type [ `Foo of int ] -> unit do not match with [ `Foo ] -> unit
+       Types for tag `Foo are incompatible
 |}];;
 
 module M : sig
@@ -494,10 +458,9 @@ Error: Signature mismatch:
        Values do not match:
          val f : [ `Foo ] -> unit
        is not included in
-         val f : [ `Foo of int ] -> unitType [ `Foo ] -> unit
-                                        do not match with
-                                          [ `Foo of int ] -> unit
-                                        Types for tag `Foo are incompatible
+         val f : [ `Foo of int ] -> unit
+       Type [ `Foo ] -> unit do not match with [ `Foo of int ] -> unit
+       Types for tag `Foo are incompatible
 |}];;
 
 module M : sig
@@ -527,11 +490,8 @@ Error: Signature mismatch:
        Values do not match:
          val f : [> `Bar | `Foo ] -> unit
        is not included in
-         val f : [< `Bar | `Baz | `Foo ] -> unitType
-                                                  ([< `Bar | `Baz | `Foo
-                                                    > `Bar `Foo ]
-                                                   as 'a) ->
-                                                  unit
-                                                do not match with 'a -> unit
-                                                Types for tag `Foo are incompatible
+         val f : [< `Bar | `Baz | `Foo ] -> unit
+       Type ([< `Bar | `Baz | `Foo > `Bar `Foo ] as 'a) -> unit
+       do not match with 'a -> unit
+       Types for tag `Foo are incompatible
 |}];;

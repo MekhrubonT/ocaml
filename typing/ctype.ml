@@ -60,6 +60,18 @@ exception Unify = Unification.Unify
 module Equality = Errortrace.Equality
 exception Equality = Equality.Equality
 
+module Moregen = Errortrace.Moregen
+exception Moregen = Moregen.Moregen
+
+module Subtype = Errortrace.Subtype
+exception Subtype = Subtype.Subtype
+
+exception Escape of {kind : desc Errortrace.escape;
+                        context : type_expr option}
+
+let escape kind = Escape {kind; context = None}
+let scope_escape kind = escape (Equation (short kind))
+
 exception Tags of label * label
 
 let () =
@@ -74,8 +86,6 @@ let () =
               )
       | _ -> None
     )
-
-exception Subtype of Unification.t * Unification.t
 
 exception Cannot_expand
 
@@ -688,17 +698,17 @@ let check_scope_escape env level ty =
     if ty.level >= lowest_level then begin
       ty.level <- pivot_level - ty.level;
       if level < ty.scope then
-        raise(Unification.scope_escape ty);
+        raise(scope_escape ty);
       begin match ty.desc with
       | Tconstr (p, _, _) when level < Path.scope p ->
           begin match !forward_try_expand_once env ty with
           | ty' -> aux ty'
           | exception Cannot_expand ->
-              raise Unification.(Unify [escape (Constructor p)])
+              raise (escape (Constructor p))
           end
       | Tpackage (p, nl, tl) when level < Path.scope p ->
           let p' = normalize_package_path env p in
-          if Path.same p p' then raise Unification.(Unify [escape (Module_type p)]);
+          if Path.same p p' then raise (escape (Module_type p));
           aux { ty with desc = Tpackage (p', nl, tl) }
       | _ ->
         iter_type_expr loop ty
@@ -709,14 +719,26 @@ let check_scope_escape env level ty =
     unmark_type ty
   in
   try aux ty;
-  with Unify [Unification.Escape x] ->
-    raise (Unify[Escape { x with context = Some ty }])
+  with Escape {kind; _} ->
+    raise (Unify [Escape {kind; context = Some ty}])
 
 let update_scope scope ty =
   let ty = repr ty in
   let scope = max scope ty.scope in
-  if ty.level < scope then raise (Unification.scope_escape ty);
+  if ty.level < scope then raise (scope_escape ty);
   set_scope ty scope
+
+let unify_wrap_escape f =
+  try
+    f ()
+  with
+  | Escape {kind; context} -> raise (Unify [Escape {kind; context}])
+
+let moregen_wrap_escape f =
+  try
+    f ()
+  with
+  | Escape {kind; context} -> raise (Moregen [Escape {kind; context}])
 
 (* Note: the level of a type constructor must be greater than its binding
     time. That way, a type constructor cannot escape the scope of its
@@ -729,7 +751,7 @@ let update_scope scope ty =
 let rec update_level env level expand ty =
   let ty = repr ty in
   if ty.level > level then begin
-    if level < ty.scope then raise (Unification.scope_escape ty);
+    if level < ty.scope then raise (scope_escape ty);
     match ty.desc with
       Tconstr(p, _tl, _abbrev) when level < Path.scope p ->
         (* Try first to replace an abbreviation by its expansion. *)
@@ -737,7 +759,7 @@ let rec update_level env level expand ty =
           link_type ty (!forward_try_expand_once env ty);
           update_level env level expand ty
         with Cannot_expand ->
-          raise Unification.(Unify [escape(Constructor p)])
+          raise (escape(Constructor p))
         end
     | Tconstr(_, _ :: _, _) when expand ->
         begin try
@@ -749,7 +771,7 @@ let rec update_level env level expand ty =
         end
     | Tpackage (p, nl, tl) when level < Path.scope p ->
         let p' = normalize_package_path env p in
-        if Path.same p p' then raise Unification.(Unify [escape (Module_type p)]);
+        if Path.same p p' then raise (escape (Module_type p));
         log_type ty; ty.desc <- Tpackage (p', nl, tl);
         update_level env level expand ty
     | Tobject(_, ({contents=Some(p, _tl)} as nm))
@@ -768,7 +790,7 @@ let rec update_level env level expand ty =
         iter_type_expr (update_level env level expand) ty
     | Tfield(lab, _, ty1, _)
       when lab = dummy_method && (repr ty1).level > level ->
-        raise Unification.(Unify [escape Self])
+        raise (escape Self)
     | _ ->
         set_level ty level;
         (* XXX what about abbreviations in Tconstr ? *)
@@ -783,7 +805,7 @@ let update_level env level ty =
     let snap = snapshot () in
     try
       update_level env level false ty
-    with Unify _ ->
+    with Escape _ ->
       backtrack snap;
       update_level env level true ty
   end
@@ -1419,7 +1441,7 @@ let expand_abbrev_gen kind find_type_expansion env ty =
           if level <> generic_level then
             begin try
               update_level env level ty'
-            with Unify _ ->
+            with Escape _ ->
               (* XXX This should not happen.
                  However, levels are not correctly restored after a
                  typing error *)
@@ -1427,7 +1449,7 @@ let expand_abbrev_gen kind find_type_expansion env ty =
             end;
           begin try
             update_scope scope ty';
-          with Unify _ ->
+          with Escape _ ->
             (* XXX This should not happen.
                However, levels are not correctly restored after a
                typing error *)
@@ -1446,12 +1468,16 @@ let expand_abbrev_gen kind find_type_expansion env ty =
           | (params, body, lv) ->
             (* prerr_endline
               ("add a "^string_of_kind kind^" expansion for "^Path.name path);*)
-            let ty' = subst env level kind abbrev (Some ty) params args body in
+            let ty' =
+              try
+                subst env level kind abbrev (Some ty) params args body
+              with Unify _ -> raise (escape Constraint)
+            in
             (* For gadts, remember type as non exportable *)
             (* The ambiguous level registered for ty' should be the highest *)
             if !trace_gadt_instances then begin
               let scope = max lv ty.scope in
-              if level < scope then raise (Unification.scope_escape ty);
+              if level < scope then raise (scope_escape ty);
               set_scope ty scope;
               set_scope ty' scope
             end;
@@ -1472,13 +1498,13 @@ let expand_head_once env ty =
 let safe_abbrev env ty =
   let snap = Btype.snapshot () in
   try ignore (expand_abbrev env ty); true
-  with Cannot_expand | Unify _ ->
+  with Cannot_expand | Escape _ ->
     Btype.backtrack snap;
     false
 
 (* Expand the head of a type once.
    Raise Cannot_expand if the type cannot be expanded.
-   May raise Unify, if a recursion was hidden in the type. *)
+   May raise Escape, if a recursion was hidden in the type. *)
 let try_expand_once env ty =
   let ty = repr ty in
   match ty.desc with
@@ -1489,7 +1515,7 @@ let try_expand_once env ty =
 let try_expand_safe env ty =
   let snap = Btype.snapshot () in
   try try_expand_once env ty
-  with Unify _ ->
+  with Escape _ ->
     Btype.backtrack snap; raise Cannot_expand
 
 (* Fully expand the head of a type. *)
@@ -1498,7 +1524,7 @@ let rec try_expand_head try_once env ty =
   try try_expand_head try_once env ty'
   with Cannot_expand -> ty'
 
-(* Unsafe full expansion, may raise Unify. *)
+(* Unsafe full expansion, may raise Escape. *)
 let expand_head_unif env ty =
   try try_expand_head try_expand_once env ty with Cannot_expand -> repr ty
 
@@ -1551,7 +1577,7 @@ let rec try_expand_head_opt env ty =
 let expand_head_opt env ty =
   let snap = Btype.snapshot () in
   try try_expand_head_opt env ty
-  with Cannot_expand | Unify _ -> (* expand_head shall never fail *)
+  with Cannot_expand | Escape _ -> (* expand_head shall never fail *)
     Btype.backtrack snap;
     repr ty
 
@@ -1661,12 +1687,16 @@ let occur env ty0 ty =
     merge type_changed old
   with exn ->
     merge type_changed old;
-    match exn with
-    | Occur -> raise (Unification.rec_occur ty0 ty)
-    | _ -> raise exn
+    raise exn
+
+let unify_occur env t1 t2 =
+  try
+    occur env t1 t2
+  with
+  | Occur -> raise (Unification.rec_occur t1 t2)
 
 let occur_in env ty0 t =
-  try occur env ty0 t; false with Unify _ -> true
+  try occur env ty0 t; false with Occur | Escape _ -> true
 
 (* Check that a local constraint is well-founded *)
 (* PR#6405: not needed since we allow recursion and work on normalized types *)
@@ -1759,7 +1789,7 @@ let occur_univar env ty =
       match ty.desc with
         Tunivar _ ->
           if not (TypeSet.mem ty bound) then
-            raise Unification.(Unify [escape (Univ ty)])
+            raise (escape (Univ ty))
       | Tpoly (ty, tyl) ->
           let bound = List.fold_right TypeSet.add (List.map repr tyl) bound in
           occur_rec bound  ty
@@ -1810,8 +1840,7 @@ let univars_escape env univar_pairs vl ty =
         Tpoly (t, tl) ->
           if List.exists (fun t -> TypeSet.mem (repr t) family) tl then ()
           else occur t
-      | Tunivar _ ->
-          if TypeSet.mem t family then raise Unification.(Unify [escape(Univ t)])
+      | Tunivar _ -> if TypeSet.mem t family then raise (escape (Univ t))
       | Tconstr (_, [], _) -> ()
       | Tconstr (p, tl, _) ->
           begin try
@@ -1903,6 +1932,12 @@ let expand_unification_trace env trace =
 let expand_equality_trace env trace =
   expand_trace Equality.map env trace
 
+let expand_moregen_trace env trace =
+  expand_trace Moregen.map env trace
+
+let expand_subtype_trace env trace =
+  expand_trace Subtype.map env trace
+
 (**** Unification ****)
 
 (* Return whether [t0] occurs in [ty]. Objects are also traversed. *)
@@ -1980,7 +2015,7 @@ let reify env t =
           let path, t = create_fresh_constr ty.level o in
           link_type ty t;
           if ty.level < fresh_constr_scope then
-            raise Unification.(Unify [escape (Constructor path)])
+            raise (escape (Constructor path))
       | Tvariant r ->
           let r = row_repr r in
           if not (static_row r) then begin
@@ -1993,7 +2028,7 @@ let reify env t =
                   {r with row_fields=[]; row_fixed=true; row_more = t} in
                 link_type m (newty2 m.level (Tvariant row));
                 if m.level < fresh_constr_scope then
-                  raise Unification.(Unify [escape (Constructor path)])
+                  raise (escape (Constructor path))
             | _ -> assert false
           end;
           iter_row iterator r
@@ -2109,8 +2144,8 @@ let rec mcomp type_pairs env t1 t2 =
         | (Tpoly (t1, []), Tpoly (t2, [])) ->
             mcomp type_pairs env t1 t2
         | (Tpoly (t1, tl1), Tpoly (t2, tl2)) ->
-            enter_poly env univar_pairs t1 tl1 t2 tl2
-              (mcomp type_pairs env)
+            unify_wrap_escape (fun () -> enter_poly env univar_pairs
+                                           t1 tl1 t2 tl2 (mcomp type_pairs env))
         | (Tunivar _, Tunivar _) ->
             unify_univar t1' t2' !univar_pairs
         | (_, _) ->
@@ -2377,13 +2412,15 @@ let unify_eq t1 t2 =
 
 let unify1_var env t1 t2 =
   assert (is_Tvar t1);
-  occur env t1 t2;
-  occur_univar env t2;
+  unify_wrap_escape (fun () ->
+    unify_occur env t1 t2;
+    occur_univar env t2);
   let d1 = t1.desc in
   link_type t1 t2;
   try
-    update_level env t1.level t2;
-    update_scope t1.scope t2
+    unify_wrap_escape (fun () ->
+      update_level env t1.level t2;
+      update_scope t1.scope t2)
   with Unify _ as e ->
     t1.desc <- d1;
     raise e
@@ -2409,8 +2446,9 @@ let rec unify (env:Env.t ref) t1 t2 =
         unify1_var !env t2 t1
     | (Tunivar _, Tunivar _) ->
         unify_univar t1 t2 !univar_pairs;
-        update_level !env t1.level t2;
-        update_scope t1.scope t2;
+        unify_wrap_escape (fun () ->
+          update_level !env t1.level t2;
+          update_scope t1.scope t2);
         link_type t1 t2
     | (Tconstr (p1, [], a1), Tconstr (p2, [], a2))
           when Path.same p1 p2 (* && actual_mode !env = Old *)
@@ -2419,8 +2457,9 @@ let rec unify (env:Env.t ref) t1 t2 =
                when any of the types has a cached expansion. *)
             && not (has_cached_expansion p1 !a1
                  || has_cached_expansion p2 !a2) ->
-        update_level !env t1.level t2;
-        update_scope t1.scope t2;
+            unify_wrap_escape (fun () ->
+              update_level !env t1.level t2;
+              update_scope t1.scope t2);
         link_type t1 t2
     | (Tconstr (p1, [], _), Tconstr (p2, [], _))
       when Env.has_local_constraints !env
@@ -2428,9 +2467,9 @@ let rec unify (env:Env.t ref) t1 t2 =
         (* Do not use local constraints more than necessary *)
         begin try
           if find_expansion_scope !env p1 > find_expansion_scope !env p2 then
-            unify env t1 (try_expand_once !env t2)
+            unify env t1 (unify_wrap_escape (fun () -> try_expand_once !env t2))
           else
-            unify env (try_expand_once !env t1) t2
+            unify env (unify_wrap_escape (fun () -> try_expand_once !env t1)) t2
         with Cannot_expand ->
           unify2 env t1 t2
         end
@@ -2445,16 +2484,22 @@ let rec unify (env:Env.t ref) t1 t2 =
 and unify2 env t1 t2 =
   (* Second step: expansion of abbreviations *)
   (* Expansion may change the representative of the types. *)
-  ignore (expand_head_unif !env t1);
-  ignore (expand_head_unif !env t2);
-  let t1' = expand_head_unif !env t1 in
-  let t2' = expand_head_unif !env t2 in
+  let t1', t2' =
+    unify_wrap_escape (fun () ->
+      ignore (expand_head_unif !env t1);
+      ignore (expand_head_unif !env t2);
+      let t1' = expand_head_unif !env t1 in
+      let t2' = expand_head_unif !env t2 in
+      t1', t2'
+    )
+  in
   let lv = min t1'.level t2'.level in
   let scope = max t1'.scope t2'.scope in
-  update_level !env lv t2;
-  update_level !env lv t1;
-  update_scope scope t2;
-  update_scope scope t1;
+  unify_wrap_escape (fun () ->
+    update_level !env lv t2;
+    update_level !env lv t1;
+    update_scope scope t2;
+    update_scope scope t1);
   if unify_eq t1' t2' then () else
 
   let t1 = repr t1 and t2 = repr t2 in
@@ -2484,19 +2529,21 @@ and unify3 env t1 t1' t2 t2' =
       unify_univar t1' t2' !univar_pairs;
       link_type t1' t2'
   | (Tvar _, _) ->
-      occur !env t1' t2;
-      occur_univar !env t2;
+      unify_wrap_escape (fun () ->
+        unify_occur !env t1' t2;
+        occur_univar !env t2);
       link_type t1' t2;
   | (_, Tvar _) ->
-      occur !env t2' t1;
-      occur_univar !env t1;
+      unify_wrap_escape (fun () ->
+        unify_occur !env t2' t1;
+        occur_univar !env t1);
       link_type t2' t1;
   | (Tfield _, Tfield _) -> (* special case for GADTs *)
       unify_fields env t1' t2'
   | _ ->
     begin match !umode with
     | Expression ->
-        occur !env t1' t2';
+        unify_wrap_escape (fun () -> unify_occur !env t1' t2');
         if is_self_type d1 (* PR#7711: do not abbreviate self type *)
         then link_type t1' t2'
         else link_type t1' t2
@@ -2523,7 +2570,10 @@ and unify3 env t1 t1' t2 t2' =
             set_mode_pattern ~generate:true ~injective:false
                              (fun () -> unify_list env tl1 tl2)
           else if in_current_module p1 (* || in_pervasives p1 *)
-                  || List.exists (expands_to_datatype !env) [t1'; t1; t2] then
+               || List.exists
+                    (unify_wrap_escape (fun () -> expands_to_datatype !env))
+                    [t1'; t1; t2]
+          then
             unify_list env tl1 tl2
           else
             let inj =
@@ -2539,7 +2589,8 @@ and unify3 env t1 t1' t2 t2' =
                     let snap = snapshot () in
                     try unify env t1 t2 with Unify _ ->
                       backtrack snap;
-                      reify env t1; reify env t2
+                      unify_wrap_escape (fun () ->
+                        reify env t1; reify env t2)
                   end)
               inj (List.combine tl1 tl2)
       | (Tconstr (path,[],_),
@@ -2551,18 +2602,21 @@ and unify3 env t1 t1' t2 t2' =
             then  path , t2'
             else  path', t1'
           in
-          add_gadt_equation env source destination
+          unify_wrap_escape (fun () -> add_gadt_equation env source destination)
       | (Tconstr (path,[],_), _)
         when is_instantiable !env path && !generate_equations ->
-          reify env t2';
-          add_gadt_equation env path t2'
+          unify_wrap_escape (fun () ->
+            reify env t2';
+            add_gadt_equation env path t2')
       | (_, Tconstr (path,[],_))
         when is_instantiable !env path && !generate_equations ->
-          reify env t1';
-          add_gadt_equation env path t1'
+          unify_wrap_escape (fun () ->
+            reify env t1';
+            add_gadt_equation env path t1')
       | (Tconstr (_,_,_), _) | (_, Tconstr (_,_,_)) when !umode = Pattern ->
-          reify env t1';
-          reify env t2';
+          unify_wrap_escape (fun () ->
+            reify env t1';
+            reify env t2');
           if !generate_equations then mcomp !env t1' t2'
       | (Tobject (fi1, nm1), Tobject (fi2, _)) ->
           unify_fields env fi1 fi2;
@@ -2583,8 +2637,9 @@ and unify3 env t1 t1' t2 t2' =
             try unify_row env row1 row2
             with Unify _ ->
               backtrack snap;
-              reify env t1';
-              reify env t2';
+              unify_wrap_escape (fun () ->
+                reify env t1';
+                reify env t2');
               if !generate_equations then mcomp !env t1' t2'
           end
       | (Tfield(f,kind,_,rem), Tnil) | (Tnil, Tfield(f,kind,_,rem)) ->
@@ -2606,14 +2661,15 @@ and unify3 env t1 t1' t2 t2' =
       | (Tpoly (t1, []), Tpoly (t2, [])) ->
           unify env t1 t2
       | (Tpoly (t1, tl1), Tpoly (t2, tl2)) ->
-          enter_poly !env univar_pairs t1 tl1 t2 tl2 (unify env)
+          unify_wrap_escape (fun () ->
+            enter_poly !env univar_pairs t1 tl1 t2 tl2 (unify env))
       | (Tpackage (p1, n1, tl1), Tpackage (p2, n2, tl2)) ->
           begin try
             unify_package !env (unify_list env)
               t1.level p1 n1 tl1 t2.level p2 n2 tl2
           with Not_found ->
             if !umode = Expression then raise (Unify []);
-            List.iter (reify env) (tl1 @ tl2);
+            List.iter (unify_wrap_escape (fun () -> reify env)) (tl1 @ tl2);
             (* if !generate_equations then List.iter2 (mcomp !env) tl1 tl2 *)
           end
       | (Tnil,  Tconstr _ ) -> raise (Unify Errortrace.[Obj(Abstract_row Second)])
@@ -2626,7 +2682,7 @@ and unify3 env t1 t1' t2 t2' =
         match t2.desc with
           Tconstr (p, tl, abbrev) ->
             forget_abbrev abbrev p;
-            let t2'' = expand_head_unif !env t2 in
+            let t2'' = unify_wrap_escape (fun () -> expand_head_unif !env t2) in
             if not (closed_parameterized_type tl t2'') then
               link_type (repr t2) (repr t2')
         | _ ->
@@ -2675,10 +2731,10 @@ and unify_fields env ty1 ty2 =          (* Optimization *)
       (fun (n, k1, t1, k2, t2) ->
         unify_kind k1 k2;
         try
-          if !trace_gadt_instances then begin
-            update_level !env va.level t1;
-            update_scope va.scope t1
-          end;
+          if !trace_gadt_instances then
+            unify_wrap_escape (fun () ->
+              update_level !env va.level t1;
+              update_scope va.scope t1);
           unify env t1 t2
         with Unify trace ->
           raise( Unify (Unification.incompatible_fields n t1 t2 :: trace) )
@@ -2761,14 +2817,16 @@ and unify_row env row1 row2 =
     let rm = row_more row in
     (*if !trace_gadt_instances && rm.desc = Tnil then () else*)
     if !trace_gadt_instances then
-      update_level !env rm.level (newgenty (Tvariant row));
+      unify_wrap_escape (fun () ->
+        update_level !env rm.level (newgenty (Tvariant row)));
     if row_fixed row then
       if more == rm then () else
       if is_Tvar rm then link_type rm more else unify env rm more
     else
       let ty = newgenty (Tvariant {row0 with row_fields = rest}) in
-      update_level !env rm.level ty;
-      update_scope rm.scope ty;
+      unify_wrap_escape (fun () ->
+        update_level !env rm.level ty;
+        update_scope rm.scope ty);
       link_type rm ty
   in
   let md1 = rm1.desc and md2 = rm2.desc in
@@ -2825,7 +2883,7 @@ and unify_row_field env fixed1 fixed2 more l f1 f2 =
       (* PR#6744 *)
       let split_univars =
         List.partition
-          (fun ty -> try occur_univar !env ty; true with Unify _ -> false) in
+          (fun ty -> try occur_univar !env ty; true with Escape _ -> false) in
       let (tl1',tlu1) = split_univars tl1'
       and (tl2',tlu2) = split_univars tl2' in
       begin match tlu1, tlu2 with
@@ -2834,13 +2892,15 @@ and unify_row_field env fixed1 fixed2 more l f1 f2 =
           (* Attempt to merge all the types containing univars *)
           if not !passive_variants then
           List.iter (unify env tu1) (tlu1@tlu2)
-      | (tu::_, []) | ([], tu::_) -> occur_univar !env tu
+      | (tu::_, []) | ([], tu::_) ->
+          unify_wrap_escape (fun () -> occur_univar !env tu)
       end;
       (* Is this handling of levels really principal? *)
       List.iter (fun ty ->
         let rm = repr more in
-        update_level !env rm.level ty;
-        update_scope rm.scope ty;
+        unify_wrap_escape (fun () ->
+          update_level !env rm.level ty;
+          update_scope rm.scope ty);
       ) (tl1' @ tl2');
       let e = ref None in
       let f1' = Reither(c1 || c2, tl1', m1 || m2, e)
@@ -2852,15 +2912,17 @@ and unify_row_field env fixed1 fixed2 more l f1 f2 =
   | Reither(false, tl, _, e1), Rpresent(Some t2) when not fixed1 ->
       set_row_field e1 f2;
       let rm = repr more in
-      update_level !env rm.level t2;
-      update_scope rm.scope t2;
+      unify_wrap_escape (fun () ->
+        update_level !env rm.level t2;
+        update_scope rm.scope t2);
       (try List.iter (fun t1 -> unify env t1 t2) tl
       with exn -> e1 := None; raise exn)
   | Rpresent(Some t1), Reither(false, tl, _, e2) when not fixed2 ->
       set_row_field e2 f1;
       let rm = repr more in
-      update_level !env rm.level t1;
-      update_scope rm.scope t1;
+      unify_wrap_escape (fun () ->
+        update_level !env rm.level t1;
+        update_scope rm.scope t1);
       (try List.iter (unify env t1) tl
       with exn -> e2 := None; raise exn)
   | Reither(true, [], _, e1), Rpresent None when not fixed1 ->
@@ -2901,9 +2963,10 @@ let unify_var env t1 t2 =
   | Tvar _, _ ->
       let reset_tracing = check_trace_gadt_instances env in
       begin try
-        occur env t1 t2;
-        update_level env t1.level t2;
-        update_scope t1.scope t2;
+        unify_wrap_escape (fun () ->
+          unify_occur env t1 t2;
+          update_level env t1.level t2;
+          update_scope t1.scope t2);
         link_type t1 t2;
         reset_trace_gadt_instances reset_tracing;
       with Unify trace ->
@@ -2943,7 +3006,7 @@ let expand_head_trace env t =
 *)
 
 let filter_arrow env t l =
-  let t = expand_head_trace env t in
+  let t = unify_wrap_escape (fun () -> expand_head_trace env t) in
   match t.desc with
     Tvar _ ->
       let lv = t.level in
@@ -2959,7 +3022,7 @@ let filter_arrow env t l =
 
 (* Used by [filter_method]. *)
 let rec filter_method_field env name priv ty =
-  let ty = expand_head_trace env ty in
+  let ty = unify_wrap_escape (fun () -> expand_head_trace env ty) in
   match ty.desc with
     Tvar _ ->
       let level = ty.level in
@@ -2986,13 +3049,14 @@ let rec filter_method_field env name priv ty =
 
 (* Unify [ty] and [< name : 'a; .. >]. Return ['a]. *)
 let filter_method env name priv ty =
-  let ty = expand_head_trace env ty in
+  let ty = unify_wrap_escape (fun () -> expand_head_trace env ty) in
   match ty.desc with
     Tvar _ ->
       let ty1 = newvar () in
       let ty' = newobj ty1 in
-      update_level env ty.level ty';
-      update_scope ty.scope ty';
+      unify_wrap_escape (fun () ->
+        update_level env ty.level ty';
+        update_scope ty.scope ty');
       link_type ty ty';
       filter_method_field env name priv ty1
   | Tobject(f, _) ->
@@ -3037,11 +3101,12 @@ let moregen_occur env level ty =
   begin try
     occur ty; unmark_type ty
   with Occur ->
-    unmark_type ty; raise (Unify [])
+    unmark_type ty; raise (Moregen [])
   end;
   (* also check for free univars *)
-  occur_univar env ty;
-  update_level env level ty
+  moregen_wrap_escape (fun () ->
+    occur_univar env ty;
+    update_level env level ty)
 
 let may_instantiate inst_nongen t1 =
   if inst_nongen then t1.level <> generic_level - 1
@@ -3052,13 +3117,14 @@ let rec moregen inst_nongen type_pairs env t1 t2 =
   let t1 = repr t1 in
   let t2 = repr t2 in
   if t1 == t2 then () else
-
   try
     match (t1.desc, t2.desc) with
-      (Tvar _, _) when may_instantiate inst_nongen t1 ->
+    | (Tvar _, _) when may_instantiate inst_nongen t1 ->
         moregen_occur env t1.level t2;
-        update_scope t1.scope t2;
-        occur env t1 t2;
+        moregen_wrap_escape (fun () ->
+          update_scope t1.scope t2;
+          try occur env t1 t2
+          with Occur -> raise (Moregen.rec_occur t1 t2));
         link_type t1 t2
     | (Tconstr (p1, [], _), Tconstr (p2, [], _)) when Path.same p1 p2 ->
         ()
@@ -3075,7 +3141,7 @@ let rec moregen inst_nongen type_pairs env t1 t2 =
           match (t1'.desc, t2'.desc) with
             (Tvar _, _) when may_instantiate inst_nongen t1' ->
               moregen_occur env t1'.level t2;
-              update_scope t1'.scope t2;
+              moregen_wrap_escape (fun () -> update_scope t1'.scope t2);
               link_type t1' t2
           | (Tarrow (l1, t1, u1, _), Tarrow (l2, t2, u2, _)) when l1 = l2
             || !Clflags.classic && not (is_optional l1 || is_optional l2) ->
@@ -3090,8 +3156,10 @@ let rec moregen inst_nongen type_pairs env t1 t2 =
               begin try
                 unify_package env (moregen_list inst_nongen type_pairs env)
                   t1'.level p1 n1 tl1 t2'.level p2 n2 tl2
-              with Not_found -> raise (Unify [])
+              with Not_found -> raise (Moregen [])
               end
+          | (Tnil,  Tconstr _ ) -> raise (Moregen [Obj(Abstract_row Second)])
+          | (Tconstr _,  Tnil ) -> raise (Moregen [Obj(Abstract_row First)])
           | (Tvariant row1, Tvariant row2) ->
               moregen_row inst_nongen type_pairs env row1 row2
           | (Tobject (fi1, _nm1), Tobject (fi2, _nm2)) ->
@@ -3103,35 +3171,47 @@ let rec moregen inst_nongen type_pairs env t1 t2 =
           | (Tpoly (t1, []), Tpoly (t2, [])) ->
               moregen inst_nongen type_pairs env t1 t2
           | (Tpoly (t1, tl1), Tpoly (t2, tl2)) ->
-              enter_poly env univar_pairs t1 tl1 t2 tl2
-                (moregen inst_nongen type_pairs env)
+              moregen_wrap_escape (fun () ->
+                enter_poly env univar_pairs t1 tl1 t2 tl2
+                  (moregen inst_nongen type_pairs env))
           | (Tunivar _, Tunivar _) ->
-              unify_univar t1' t2' !univar_pairs
+              begin try
+                unify_univar t1' t2' !univar_pairs
+              with
+              | Unify _ -> raise (Moregen [])
+              end
           | (_, _) ->
-              raise (Unify [])
+              raise (Moregen [])
         end
-  with Unify trace ->  raise( Unify ( Unification.diff t1 t2 :: trace ) )
+  with Moregen trace -> raise ( Moregen ( Moregen.diff t1 t2 :: trace ) );
+
 
 and moregen_list inst_nongen type_pairs env tl1 tl2 =
   if List.length tl1 <> List.length tl2 then
-    raise (Unify []);
+    raise (Moregen []);
   List.iter2 (moregen inst_nongen type_pairs env) tl1 tl2
 
 and moregen_fields inst_nongen type_pairs env ty1 ty2 =
   let (fields1, rest1) = flatten_fields ty1
   and (fields2, rest2) = flatten_fields ty2 in
   let (pairs, miss1, miss2) = associate_fields fields1 fields2 in
-  if miss1 <> [] then raise (Unify []);
+  begin
+    match miss1 with
+    | (n, _, _) :: _ -> raise (Moregen [Obj (Missing_field (Second, n))])
+    | [] -> ()
+  end;
   moregen inst_nongen type_pairs env rest1
     (build_fields (repr ty2).level miss2 rest2);
+
   List.iter
     (fun (n, k1, t1, k2, t2) ->
        moregen_kind k1 k2;
-       try moregen inst_nongen type_pairs env t1 t2 with Unify trace ->
-         let e = Unification.diff
+       try moregen inst_nongen type_pairs env t1 t2 with Moregen trace ->
+         let r = Moregen.diff
              (newty (Tfield(n, k1, t1, rest2)))
              (newty (Tfield(n, k2, t2, rest2))) in
-         raise( Unify ( e :: trace ) )
+         let e = Moregen.incompatible_fields n t1 t2 in
+         raise( Moregen ( r :: e :: trace ) )
     )
     pairs
 
@@ -3142,7 +3222,7 @@ and moregen_kind k1 k2 =
   match k1, k2 with
     (Fvar r, (Fvar _ | Fpresent))  -> set_kind r k2
   | (Fpresent, Fpresent)           -> ()
-  | _                              -> raise (Unify [])
+  | _                              -> assert false
 
 and moregen_row inst_nongen type_pairs env row1 row2 =
   let row1 = row_repr row1 and row2 = row_repr row2 in
@@ -3156,55 +3236,73 @@ and moregen_row inst_nongen type_pairs env row1 row2 =
       filter_row_fields may_inst r1, filter_row_fields false r2
     else r1, r2
   in
-  if r1 <> [] || row1.row_closed && (not row2.row_closed || r2 <> [])
-  then raise (Unify []);
+  begin
+    match r1 with
+    | [] -> ()
+    | (lb, _) :: _ -> raise (Moregen [Variant (Missing (Second, lb))])
+  end;
+  if row1.row_closed then begin
+    match row2.row_closed, r2 with
+    | false, _ -> raise (Moregen [Variant Openness])
+    | _, ((lb, _) :: _) -> raise (Moregen [Variant (Missing (First, lb))])
+    | _, _ -> ()
+  end;
+
   begin match rm1.desc, rm2.desc with
     Tunivar _, Tunivar _ ->
-      unify_univar rm1 rm2 !univar_pairs
+      begin try
+        unify_univar rm1 rm2 !univar_pairs
+      with Unify [] -> raise (Moregen [])
+      end
   | Tunivar _, _ | _, Tunivar _ ->
-      raise (Unify [])
+      raise (Moregen [])
   | _ when static_row row1 -> ()
   | _ when may_inst ->
       let ext =
         newgenty (Tvariant {row2 with row_fields = r2; row_name = None})
       in
       moregen_occur env rm1.level ext;
-      update_scope rm1.scope ext;
+      moregen_wrap_escape (fun () -> update_scope rm1.scope ext);
       link_type rm1 ext
   | Tconstr _, Tconstr _ ->
       moregen inst_nongen type_pairs env rm1 rm2
-  | _ -> raise (Unify [])
+  | _ -> raise (Moregen [])
   end;
   List.iter
-    (fun (_l,f1,f2) ->
-      let f1 = row_field_repr f1 and f2 = row_field_repr f2 in
-      if f1 == f2 then () else
-      match f1, f2 with
-        Rpresent(Some t1), Rpresent(Some t2) ->
-          moregen inst_nongen type_pairs env t1 t2
-      | Rpresent None, Rpresent None -> ()
-      | Reither(false, tl1, _, e1), Rpresent(Some t2) when may_inst ->
-          set_row_field e1 f2;
-          List.iter (fun t1 -> moregen inst_nongen type_pairs env t1 t2) tl1
-      | Reither(c1, tl1, _, e1), Reither(c2, tl2, m2, e2) ->
-          if e1 != e2 then begin
-            if c1 && not c2 then raise(Unify []);
-            set_row_field e1 (Reither (c2, [], m2, e2));
-            if List.length tl1 = List.length tl2 then
-              List.iter2 (moregen inst_nongen type_pairs env) tl1 tl2
-            else match tl2 with
-              t2 :: _ ->
-                List.iter (fun t1 -> moregen inst_nongen type_pairs env t1 t2)
-                  tl1
-            | [] ->
-                if tl1 <> [] then raise (Unify [])
-          end
-      | Reither(true, [], _, e1), Rpresent None when may_inst ->
-          set_row_field e1 f2
-      | Reither(_, _, _, e1), Rabsent when may_inst ->
-          set_row_field e1 f2
-      | Rabsent, Rabsent -> ()
-      | _ -> raise (Unify []))
+    (fun (l,f1,f2) ->
+       try
+         let f1 = row_field_repr f1 and f2 = row_field_repr f2 in
+         if f1 == f2 then () else
+         match f1, f2 with
+         | Rpresent(Some t1), Rpresent(Some t2) ->
+             moregen inst_nongen type_pairs env t1 t2
+         | Rpresent None, Rpresent None -> ()
+         | Reither(false, tl1, _, e1), Rpresent(Some t2) when may_inst ->
+             set_row_field e1 f2;
+             List.iter (fun t1 -> moregen inst_nongen type_pairs env t1 t2) tl1
+         | Reither(c1, tl1, _, e1), Reither(c2, tl2, m2, e2) ->
+             if e1 != e2 then begin
+               if c1 && not c2 then raise(Moregen []);
+               set_row_field e1 (Reither (c2, [], m2, e2));
+               if List.length tl1 = List.length tl2 then
+                 List.iter2 (moregen inst_nongen type_pairs env) tl1 tl2
+               else match tl2 with
+                 | t2 :: _ ->
+                     List.iter
+                       (fun t1 -> moregen inst_nongen type_pairs env t1 t2)
+                       tl1
+                 | [] -> if tl1 <> [] then raise (Moregen [])
+             end
+         | Reither(true, [], _, e1), Rpresent None when may_inst ->
+             set_row_field e1 f2
+         | Reither(_, _, _, e1), Rabsent when may_inst -> set_row_field e1 f2
+         | Rabsent, Rabsent -> ()
+         | Rpresent (Some _), Rpresent None -> raise (Moregen [])
+         | Rpresent None, Rpresent (Some _) -> raise (Moregen [])
+         | Rpresent _, Reither _ -> raise (Moregen [])
+         | _ -> raise (Moregen [])
+       with Moregen err ->
+         raise (Moregen (Variant (Incompatible_types_for l) :: err)))
     pairs
 
 (* Must empty univar_pairs first *)
@@ -3233,13 +3331,10 @@ let moregeneral env inst_nongen pat_sch subj_sch =
   current_level := generic_level;
   (* Duplicate generic variables *)
   let patt = instance pat_sch in
-  let res =
-    try moregen inst_nongen (TypePairs.create 13) env patt subj; true with
-      Unify _ -> false
-  in
-  current_level := old_level;
-  res
 
+  Misc.try_finally
+    (fun () -> moregen inst_nongen (TypePairs.create 13) env patt subj)
+    ~always:(fun () -> current_level := old_level)
 
 (* Alternative approach: "rigidify" a type scheme,
    and check validity after unification *)
@@ -3376,10 +3471,12 @@ let rec eqtype rename type_pairs subst env t1 t2 =
           | (Tpoly (t1, []), Tpoly (t2, [])) ->
               eqtype rename type_pairs subst env t1 t2
           | (Tpoly (t1, tl1), Tpoly (t2, tl2)) ->
-              begin try
-                   enter_poly env univar_pairs t1 tl1 t2 tl2
-                     (eqtype rename type_pairs subst env)
-                with Unify _ -> raise (Equality [])
+              begin
+                try
+                  enter_poly env univar_pairs t1 tl1 t2 tl2
+                   (eqtype rename type_pairs subst env)
+                with Escape {kind; context} ->
+                  raise (Equality [Equality.Escape {kind; context}])
               end
           | (Tunivar _, Tunivar _) ->
               begin try
@@ -3522,10 +3619,10 @@ type class_match_failure =
   | CM_Parameter_arity_mismatch of int * int
   | CM_Type_parameter_mismatch of Env.t * Equality.t
   | CM_Class_type_mismatch of Env.t * class_type * class_type
-  | CM_Parameter_mismatch of Env.t * Unification.t
-  | CM_Val_type_mismatch of string * Env.t * Unification.t
+  | CM_Parameter_mismatch of Env.t * Moregen.t
+  | CM_Val_type_mismatch of string * Env.t * Moregen.t
   | CM_Val_type_mismatch_eq of string * Env.t * Equality.t
-  | CM_Meth_type_mismatch of string * Env.t * Unification.t
+  | CM_Meth_type_mismatch of string * Env.t * Moregen.t
   | CM_Meth_type_mismatch_eq of string * Env.t * Equality.t
   | CM_Non_mutable_value of string
   | CM_Non_concrete_value of string
@@ -3547,8 +3644,8 @@ let rec moregen_clty trace type_pairs env cty1 cty2 =
     | _, Cty_constr (_, _, cty2) ->
         moregen_clty true type_pairs env cty1 cty2
     | Cty_arrow (l1, ty1, cty1'), Cty_arrow (l2, ty2, cty2') when l1 = l2 ->
-        begin try moregen true type_pairs env ty1 ty2 with Unify trace ->
-          let expanded_trace = expand_unification_trace env trace in
+        begin try moregen true type_pairs env ty1 ty2 with Moregen trace ->
+          let expanded_trace = expand_moregen_trace env trace in
           raise (Failure [CM_Parameter_mismatch (env, expanded_trace)])
         end;
         moregen_clty false type_pairs env cty1' cty2'
@@ -3560,17 +3657,17 @@ let rec moregen_clty trace type_pairs env cty1 cty2 =
         let (pairs, _miss1, _miss2) = associate_fields fields1 fields2 in
         List.iter
           (fun (lab, _k1, t1, _k2, t2) ->
-             begin try moregen true type_pairs env t1 t2 with Unify trace ->
-               let expanded_trace = expand_unification_trace env trace in
-               raise (Failure [CM_Meth_type_mismatch (lab, env, expanded_trace)])
+             begin try moregen true type_pairs env t1 t2 with Moregen trace ->
+               let trace = expand_moregen_trace env trace in
+               raise (Failure [CM_Meth_type_mismatch (lab, env, trace)])
              end)
           pairs;
       Vars.iter
         (fun lab (_mut, _v, ty) ->
            let (_mut', _v', ty') = Vars.find lab sign1.csig_vars in
-           try moregen true type_pairs env ty' ty with Unify trace ->
+           try moregen true type_pairs env ty' ty with Moregen trace ->
              raise (Failure [CM_Val_type_mismatch
-                                (lab, env, expand_unification_trace env trace)]))
+                                (lab, env, expand_moregen_trace env trace)]))
         sign2.csig_vars
   | _ ->
       raise (Failure [])
@@ -3626,7 +3723,7 @@ let match_class_types ?(trace=true) env pat_sch subj_sch =
       List.fold_right
         (fun (lab, k1, _t1, k2, _t2) err ->
            try moregen_kind k1 k2; err with
-             Unify _ -> CM_Public_method lab::err)
+             Moregen _ -> CM_Public_method lab::err)
         pairs error
     in
     let error =
@@ -3852,7 +3949,7 @@ let find_cltype_for_path env p =
   | None -> assert false
 
 let has_constr_row' env t =
-  has_constr_row (expand_abbrev env t)
+  unify_wrap_escape (fun () -> has_constr_row (expand_abbrev env t))
 
 let rec build_subtype env visited loops posi level t =
   let t = repr t in
@@ -3887,7 +3984,7 @@ let rec build_subtype env visited loops posi level t =
   | Tconstr(p, tl, abbrev)
     when level > 0 && generic_abbrev env p && safe_abbrev env t
     && not (has_constr_row' env t) ->
-      let t' = repr (expand_abbrev env t) in
+      let t' = repr (unify_wrap_escape (fun () -> expand_abbrev env t)) in
       let level' = pred_expand level in
       begin try match t'.desc with
         Tobject _ when posi && not (opened_object t') ->
@@ -4040,7 +4137,11 @@ let enlarge_type env ty =
 let subtypes = TypePairs.create 17
 
 let subtype_error env trace =
-  raise (Subtype (expand_unification_trace env (List.rev trace), []))
+  raise (Subtype (expand_subtype_trace env (List.rev trace), []))
+
+let fail_if_escape f =
+  try f ()
+  with Escape _ -> assert false
 
 let rec subtype_rec env trace t1 t2 cstrs =
   let t1 = repr t1 in
@@ -4057,18 +4158,20 @@ let rec subtype_rec env trace t1 t2 cstrs =
         (trace, t1, t2, !univar_pairs)::cstrs
     | (Tarrow(l1, t1, u1, _), Tarrow(l2, t2, u2, _)) when l1 = l2
       || !Clflags.classic && not (is_optional l1 || is_optional l2) ->
-        let cstrs = subtype_rec env (Unification.diff t2 t1::trace) t2 t1 cstrs in
-        subtype_rec env (Unification.diff u1 u2::trace) u1 u2 cstrs
+        let cstrs = subtype_rec env (Subtype.diff t2 t1::trace) t2 t1 cstrs in
+        subtype_rec env (Subtype.diff u1 u2::trace) u1 u2 cstrs
     | (Ttuple tl1, Ttuple tl2) ->
         subtype_list env trace tl1 tl2 cstrs
     | (Tconstr(p1, [], _), Tconstr(p2, [], _)) when Path.same p1 p2 ->
         cstrs
     | (Tconstr(p1, _tl1, _abbrev1), _)
       when generic_abbrev env p1 && safe_abbrev env t1 ->
-        subtype_rec env trace (expand_abbrev env t1) t2 cstrs
+        subtype_rec env trace
+          (fail_if_escape (fun () -> expand_abbrev env t1)) t2 cstrs
     | (_, Tconstr(p2, _tl2, _abbrev2))
       when generic_abbrev env p2 && safe_abbrev env t2 ->
-        subtype_rec env trace t1 (expand_abbrev env t2) cstrs
+        subtype_rec env trace t1
+          (fail_if_escape (fun () -> expand_abbrev env t2)) cstrs
     | (Tconstr(p1, tl1, _), Tconstr(p2, tl2, _)) when Path.same p1 p2 ->
         begin try
           let decl = Env.find_type p1 env in
@@ -4079,16 +4182,18 @@ let rec subtype_rec env trace t1 t2 cstrs =
                 if cn then
                   (trace, newty2 t1.level (Ttuple[t1]),
                    newty2 t2.level (Ttuple[t2]), !univar_pairs) :: cstrs
-                else subtype_rec env (Unification.diff t1 t2::trace) t1 t2 cstrs
+                else subtype_rec env (Subtype.diff t1 t2::trace) t1 t2 cstrs
               else
-                if cn then subtype_rec env (Unification.diff t2 t1::trace) t2 t1 cstrs
+                if cn
+                then subtype_rec env (Subtype.diff t2 t1::trace) t2 t1 cstrs
                 else cstrs)
             cstrs decl.type_variance (List.combine tl1 tl2)
         with Not_found ->
           (trace, t1, t2, !univar_pairs)::cstrs
         end
     | (Tconstr(p1, _, _), _) when generic_private_abbrev env p1 ->
-        subtype_rec env trace (expand_abbrev_opt env t1) t2 cstrs
+        subtype_rec env trace
+          (fail_if_escape (fun () -> expand_abbrev_opt env t1)) t2 cstrs
 (*  | (_, Tconstr(p2, _, _)) when generic_private_abbrev false env p2 ->
         subtype_rec env trace t1 (expand_abbrev_opt env t2) cstrs *)
     | (Tobject (f1, _), Tobject (f2, _))
@@ -4112,7 +4217,7 @@ let rec subtype_rec env trace t1 t2 cstrs =
         begin try
           enter_poly env univar_pairs u1 tl1 u2 tl2
             (fun t1 t2 -> subtype_rec env trace t1 t2 cstrs)
-        with Unify _ ->
+        with Escape _ ->
           (trace, t1, t2, !univar_pairs)::cstrs
         end
     | (Tpackage (p1, nl1, tl1), Tpackage (p2, nl2, tl2)) ->
@@ -4133,8 +4238,8 @@ let rec subtype_rec env trace t1 t2 cstrs =
               List.iter (fun (_, t1, t2, _) -> unify env t1 t2) cstrs';
               if !package_subtype env p1 nl1 tl1 p2 nl2 tl2
               then (Btype.backtrack snap; cstrs' @ cstrs)
-              else raise (Unify [])
-            with Unify _ ->
+              else raise (Subtype ([], []))
+            with Unify _ | Subtype _ ->
               Btype.backtrack snap; raise Not_found
           end
         with Not_found ->
@@ -4148,7 +4253,7 @@ and subtype_list env trace tl1 tl2 cstrs =
   if List.length tl1 <> List.length tl2 then
     subtype_error env trace;
   List.fold_left2
-    (fun cstrs t1 t2 -> subtype_rec env (Unification.diff t1 t2::trace) t1 t2 cstrs)
+    (fun cstrs t1 t2 -> subtype_rec env (Subtype.diff t1 t2::trace) t1 t2 cstrs)
     cstrs tl1 tl2
 
 and subtype_fields env trace ty1 ty2 cstrs =
@@ -4159,7 +4264,7 @@ and subtype_fields env trace ty1 ty2 cstrs =
   let cstrs =
     if rest2.desc = Tnil then cstrs else
     if miss1 = [] then
-      subtype_rec env (Unification.diff rest1 rest2::trace) rest1 rest2 cstrs
+      subtype_rec env (Subtype.diff rest1 rest2::trace) rest1 rest2 cstrs
     else
       (trace, build_fields (repr ty1).level miss1 rest1, rest2,
        !univar_pairs) :: cstrs
@@ -4172,7 +4277,7 @@ and subtype_fields env trace ty1 ty2 cstrs =
   List.fold_left
     (fun cstrs (_, _k1, t1, _k2, t2) ->
       (* These fields are always present *)
-      subtype_rec env (Unification.diff t1 t2::trace) t1 t2 cstrs)
+      subtype_rec env (Subtype.diff t1 t2::trace) t1 t2 cstrs)
     cstrs pairs
 
 and subtype_row env trace row1 row2 cstrs =
@@ -4185,7 +4290,7 @@ and subtype_row env trace row1 row2 cstrs =
   and more2 = repr row2.row_more in
   match more1.desc, more2.desc with
     Tconstr(p1,_,_), Tconstr(p2,_,_) when Path.same p1 p2 ->
-      subtype_rec env (Unification.diff more1 more2::trace) more1 more2 cstrs
+      subtype_rec env (Subtype.diff more1 more2::trace) more1 more2 cstrs
   | (Tvar _|Tconstr _|Tnil), (Tvar _|Tconstr _|Tnil)
     when row1.row_closed && r1 = [] ->
       List.fold_left
@@ -4194,17 +4299,16 @@ and subtype_row env trace row1 row2 cstrs =
             (Rpresent None|Reither(true,_,_,_)), Rpresent None ->
               cstrs
           | Rpresent(Some t1), Rpresent(Some t2) ->
-              subtype_rec env (Unification.diff t1 t2::trace) t1 t2 cstrs
+              subtype_rec env (Subtype.diff t1 t2::trace) t1 t2 cstrs
           | Reither(false, t1::_, _, _), Rpresent(Some t2) ->
-              subtype_rec env (Unification.diff t1 t2::trace) t1 t2 cstrs
+              subtype_rec env (Subtype.diff t1 t2::trace) t1 t2 cstrs
           | Rabsent, _ -> cstrs
           | _ -> raise Exit)
         cstrs pairs
   | Tunivar _, Tunivar _
     when row1.row_closed = row2.row_closed && r1 = [] && r2 = [] ->
       let cstrs =
-        subtype_rec env (Unification.diff more1 more2::trace) more1 more2 cstrs
-      in
+        subtype_rec env (Subtype.diff more1 more2::trace) more1 more2 cstrs in
       List.fold_left
         (fun cstrs (_,f1,f2) ->
           match row_field_repr f1, row_field_repr f2 with
@@ -4214,7 +4318,7 @@ and subtype_row env trace row1 row2 cstrs =
               cstrs
           | Rpresent(Some t1), Rpresent(Some t2)
           | Reither(false,[t1],_,_), Reither(false,[t2],_,_) ->
-              subtype_rec env (Unification.diff t1 t2::trace) t1 t2 cstrs
+              subtype_rec env (Subtype.diff t1 t2::trace) t1 t2 cstrs
           | _ -> raise Exit)
         cstrs pairs
   | _ ->
@@ -4224,14 +4328,14 @@ let subtype env ty1 ty2 =
   TypePairs.clear subtypes;
   univar_pairs := [];
   (* Build constraint set. *)
-  let cstrs = subtype_rec env [Unification.diff ty1 ty2] ty1 ty2 [] in
+  let cstrs = subtype_rec env [Subtype.diff ty1 ty2] ty1 ty2 [] in
   TypePairs.clear subtypes;
   (* Enforce constraints. *)
   function () ->
     List.iter
       (function (trace0, t1, t2, pairs) ->
          try unify_pairs (ref env) t1 t2 pairs with Unify trace ->
-           raise (Subtype (expand_unification_trace env (List.rev trace0),
+           raise (Subtype (expand_subtype_trace env (List.rev trace0),
                            List.tl trace)))
       (List.rev cstrs)
 
@@ -4286,7 +4390,7 @@ let cyclic_abbrev env id ty =
           check_cycle (ty :: seen) (expand_abbrev_opt env ty)
         with
           Cannot_expand -> false
-        | Unify _ -> true
+        | Escape _ -> true
         end
     | _ ->
         false
@@ -4453,7 +4557,7 @@ let rec nondep_type_rec ?(expand_private=false) env ids ty =
                    (recursive type), so one cannot just take its
                    description.
                  *)
-              with Cannot_expand | Unify _ ->
+              with Cannot_expand | Escape _ ->
                 raise (Nondep_cannot_erase id)
               end
           | None ->

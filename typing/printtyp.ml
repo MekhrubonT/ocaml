@@ -1725,6 +1725,8 @@ let type_expansion ppf = function
 
 module Unification = Errortrace.Unification
 module Equality = Errortrace.Equality
+module Moregen = Errortrace.Moregen
+module Subtype = Errortrace.Subtype
 
 let trees_of_trace = List.map (Errortrace.map_diff trees_of_type_expansion)
 
@@ -1769,11 +1771,19 @@ let diff_printing_status { Errortrace.got=t1, t1'; expected=t2, t2'} =
 
 let unification_printing_status = function
   | Unification.Diff d -> diff_printing_status d
+  | Unification.Escape {kind = Constraint} -> Discard
   | _ -> Keep
 
 let equality_printing_status  = function
   | Equality.Diff d -> diff_printing_status d
+  | Equality.Escape {kind = Constraint} -> Discard
   | _ -> Keep
+
+let moregen_printing_status  = function
+  | Moregen.Diff d -> diff_printing_status d
+  | _ -> Keep
+let subtype_printing_status  = function
+  | Subtype.Diff d -> diff_printing_status d
 
 (** Flatten the trace and remove elements that are always discarded
     during printing *)
@@ -1802,6 +1812,12 @@ let prepare_equality_trace f tr =
   in
   prepare_trace is_poly_diff equality_printing_status
     (Equality.flatten f tr)
+let prepare_moregen_trace f tr =
+  prepare_trace (fun _ -> false) moregen_printing_status
+    (Moregen.flatten f tr)
+let prepare_subtype_trace f tr =
+  prepare_trace (fun _ -> false) subtype_printing_status
+    (Subtype.flatten f tr)
 
 (** Keep elements that are not [Diff _ ] and take the decision
     for the last element, require a prepared trace *)
@@ -1878,6 +1894,31 @@ let print_pos ppf = function
   | Errortrace.First -> fprintf ppf "first"
   | Errortrace.Second -> fprintf ppf "second"
 
+let explain_escape pre = function
+  | Errortrace.Univ u -> Some(
+      dprintf "%t@,The universal variable %a would escape its scope"
+        pre type_expr u
+    )
+  | Errortrace.Constructor p -> Some(
+      dprintf
+        "%t@,@[The type constructor@;<1 2>%a@ would escape its scope@]"
+        pre path p
+    )
+  | Errortrace.Module_type p -> Some(
+      dprintf
+        "%t@,@[The module type@;<1 2>%a@ would escape its scope@]"
+        pre path p
+    )
+  | Errortrace.Equation (_,t) -> Some(
+      dprintf "%t @,@[<hov>This instance of %a is ambiguous:@ %s@]"
+        pre type_expr t
+        "it would escape the scope of its equation"
+    )
+  | Errortrace.Self ->
+      Some (dprintf "%t@,Self type cannot escape its class" pre)
+  | Errortrace.Constraint ->
+      Some (dprintf "%t@,###########Constraint##########" pre)
+
 let unification_explanation intro prev env q =
   let explain_variant = function
     | Unification.No_intersection ->
@@ -1890,38 +1931,6 @@ let unification_explanation intro prev env q =
             print_tags fields)
     | Unification.Incompatible_types_for s ->
         Some(dprintf "@,Types for tag `%s are incompatible" s)
-  in
-
-  let explain_escape intro prev ctx e =
-    let pre = match ctx with
-      | Some ctx ->  dprintf "@[%t@;<1 2>%a@]" intro type_expr ctx
-      | None -> match e, prev with
-        | Unification.(Univ _, Some(Incompatible_fields {name; diff})) ->
-            dprintf "@,@[The method %s has type@ %a,@ \
-                     but the expected method type was@ %a@]" name
-              type_expr diff.got type_expr diff.expected
-        | _ -> ignore in
-    match e with
-    | Unification.Univ u ->  Some(
-        dprintf "%t@,The universal variable %a would escape its scope"
-          pre type_expr u)
-    | Unification.Constructor p -> Some(
-        dprintf
-          "%t@,@[The type constructor@;<1 2>%a@ would escape its scope@]"
-          pre path p
-      )
-    | Unification.Module_type p -> Some(
-        dprintf
-          "%t@,@[The module type@;<1 2>%a@ would escape its scope@]"
-          pre path p
-      )
-    | Unification.Equation (_,t) -> Some(
-        dprintf "%t @,@[<hov>This instance of %a is ambiguous:@ %s@]"
-          pre type_expr t
-          "it would escape the scope of its equation"
-      )
-    | Unification.Self ->
-        Some (dprintf "%t@,Self type cannot escape its class" pre)
   in
 
   let explain_object = function
@@ -1940,7 +1949,18 @@ let unification_explanation intro prev env q =
   | Unification.Diff { Errortrace.got = _, s; expected = _,t } ->
       explanation_diff env s t
   | Unification.Escape {kind;context} ->
-      explain_escape intro prev context kind
+      let pre =
+        match context with
+        | Some ctx ->  dprintf "@[%t@;<1 2>%a@]" intro type_expr ctx
+        | None -> match kind, prev with
+          | Errortrace.Univ _,
+            Some(Unification.Incompatible_fields {name; diff}) ->
+              dprintf "@,@[The method %s has type@ %a,@ \
+                       but the expected method type was@ %a@]" name
+              type_expr diff.got type_expr diff.expected
+          | _ -> ignore
+      in
+      explain_escape pre kind
   | Unification.Incompatible_fields { name; _ } ->
         Some(dprintf "@,Types for method %s are incompatible" name)
   | Unification.Variant v -> explain_variant v
@@ -1961,7 +1981,7 @@ let mismatch explanation intro env trace =
 
 let unification_mismatch = mismatch unification_explanation
 
-let explain_equality _intro _prev env q =
+let explain_equality intro prev env q =
   let swap = Errortrace.(function
     | First -> Second
     | Second -> First)
@@ -1992,8 +2012,59 @@ let explain_equality _intro _prev env q =
       Some (dprintf "@,Types for method %s are incompatible" name)
   | Equality.Variant v -> explain_variant v
   | Equality.Obj o -> explain_object o
+  | Equality.Escape {kind;context} ->
+      let pre =
+        match context with
+        | Some ctx ->  dprintf "@[%t@;<1 2>%a@]" intro type_expr ctx
+        | None -> match kind, prev with
+          | Errortrace.Univ _,
+            Some(Equality.Incompatible_fields {name; diff}) ->
+              dprintf "@,@[The method %s has type@ %a,@ \
+                       but the expected method type was@ %a@]" name
+              type_expr diff.got type_expr diff.expected
+          | _ -> ignore
+      in
+      explain_escape pre kind
 
 let equality_mismatch = mismatch explain_equality
+
+let explain_moregen intro _prev env q =
+  let explain_variant = function
+    | Moregen.Incompatible_types_for s ->
+        Some(dprintf "@,Types for tag `%s are incompatible" s)
+    | Moregen.Missing (pos, f) ->
+        Some(dprintf "@,@[The %a object type has no method %s@]" print_pos pos f)
+    | Moregen.Openness ->
+        Some (dprintf "@,@[The second object is open and the first is not@]")
+  in
+  let explain_object = function
+    | Moregen.Missing_field (pos, f) ->
+        Some(dprintf "@,@[The %a object type has no method %s@]" print_pos pos f)
+    | Moregen.Abstract_row pos -> Some(
+        dprintf
+          "@,@[The %a object type has an abstract row, it cannot be closed@]"
+          print_pos pos
+      )
+  in
+  match q with
+  | Moregen.Diff { got = _, s; expected = _,t } -> explanation_diff env s t
+  | Moregen.Escape {kind;context} ->
+      let pre =
+        match context with
+        | Some ctx -> dprintf "@[%t@;<1 2>%a@]" intro type_expr ctx
+        | None -> ignore
+      in
+      explain_escape pre kind
+  | Moregen.Incompatible_fields { name; _ } ->
+      Some(dprintf "@,Types for method %s are incompatible" name)
+  | Moregen.Variant v -> explain_variant v
+  | Moregen.Obj o -> explain_object o
+  | Moregen.Rec_occur(x,y) ->
+      mark_loops y;
+      Some(dprintf "@,@[<hov>The type variable %a occurs inside@ %a@]"
+             type_expr x type_expr y)
+
+let moregen_mismatch = mismatch explain_moregen
 
 let explain mis ppf =
   match mis with
@@ -2114,32 +2185,73 @@ let report_equality_error ppf env tr
     ~error:true
 ;;
 
-(** [trace] requires the trace to be prepared *)
-let trace fst keep_last txt ppf tr =
-  print_labels := not !Clflags.classic;
-  try match tr with
-    | elt :: tr' ->
-        let elt = match elt with
-          | Unification.Diff diff ->
-              [Errortrace.map_diff trees_of_type_expansion diff]
-          | _ -> [] in
-        let tr =
-          trees_of_trace
-          @@ List.map (Errortrace.map_diff prepare_expansion)
-          @@ filter_trace keep_last tr' in
-      if fst then trace fst txt ppf (elt @ tr)
-      else trace fst txt ppf tr;
-      print_labels := true
-  | _ -> ()
-  with exn ->
-    print_labels := true;
-    raise exn
+let moregen_error env tr txt1 ppf txt2 ty_expect_explanation =
+  let rec filter_trace keep_last = function
+    | [] -> []
+    | [Moregen.Diff d as elt]
+      when moregen_printing_status elt = Optional_refinement ->
+      if keep_last then [d] else []
+    | Moregen.Diff d :: rem -> d :: filter_trace keep_last rem
+    | _ :: rem -> filter_trace keep_last rem
+  in
+  let prepare_expansion_head empty_tr = function
+    | Moregen.Diff d ->
+      Some(Errortrace.map_diff (may_prepare_expansion empty_tr) d)
+    | _ -> None
+  in
+
+  reset ();
+  let tr = prepare_moregen_trace (fun t t' -> t, hide_variant_name t') tr in
+  let mis = moregen_mismatch txt1 env tr in
+  handle_trace filter_trace prepare_expansion_head
+    env tr "is not compatible with type" mis txt1 ppf txt2 ty_expect_explanation
+
+let report_moregen_error ppf env tr
+      ?(type_expected_explanation = fun _ -> ())
+      txt1 txt2 =
+  wrap_printing_env env (fun () -> moregen_error env tr txt1 ppf txt2
+                                     type_expected_explanation)
+    ~error:true
+;;
 
 let report_subtyping_error ppf env tr1 txt1 tr2 =
+  let trace filter_trace map_diff fst keep_last txt ppf tr =
+    print_labels := not !Clflags.classic;
+    try match tr with
+      | elt :: tr' ->
+          let elt = map_diff elt in
+          let tr =
+            trees_of_trace
+            @@ List.map (Errortrace.map_diff prepare_expansion)
+            @@ filter_trace keep_last tr' in
+          if fst then trace fst txt ppf (elt @ tr)
+          else trace fst txt ppf tr;
+          print_labels := true
+      | _ -> ()
+    with exn ->
+      print_labels := true;
+      raise exn
+  in
+  let rec subtype_filter_trace keep_last = function
+    | [] -> []
+    | [Subtype.Diff d as elt]
+      when subtype_printing_status elt = Optional_refinement ->
+        if keep_last then [d] else []
+    | Subtype.Diff d :: rem -> d :: subtype_filter_trace keep_last rem
+  in
+  let unification_map_diff elt = match elt with
+    | Unification.Diff diff ->
+      [Errortrace.map_diff trees_of_type_expansion diff]
+    | _ -> []
+  in
+  let subtype_map_diff elt = match elt with
+    | Subtype.Diff diff -> [Errortrace.map_diff trees_of_type_expansion diff]
+  in
+
   wrap_printing_env ~error:true env (fun () ->
     reset ();
     let tr1 =
-      prepare_unification_trace (fun t t' -> prepare_expansion (t, t')) tr1
+      prepare_subtype_trace (fun t t' -> prepare_expansion (t, t')) tr1
     in
     let tr2 =
       prepare_unification_trace (fun t t' -> prepare_expansion (t, t')) tr2
@@ -2147,11 +2259,13 @@ let report_subtyping_error ppf env tr1 txt1 tr2 =
     let keep_first = match tr2 with
       | [Obj _ | Variant _ | Escape _ ] | [] -> true
       | _ -> false in
-    fprintf ppf "@[<v>%a" (trace true keep_first txt1) tr1;
+    fprintf ppf "@[<v>%a"
+      (trace subtype_filter_trace subtype_map_diff true keep_first txt1) tr1;
     if tr2 = [] then fprintf ppf "@]" else
     let mis = unification_mismatch (dprintf "Within this type") env tr2 in
     fprintf ppf "%a%t%t@]"
-      (trace false (mis = None) "is not compatible with type") tr2
+      (trace filter_trace unification_map_diff false (mis = None)
+         "is not compatible with type") tr2
       (explain mis)
       Conflicts.print
   )

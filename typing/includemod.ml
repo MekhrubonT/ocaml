@@ -22,6 +22,7 @@ open Types
 type symptom =
     Missing_field of Ident.t * Location.t * string (* kind *)
   | Value_descriptions of Ident.t * value_description * value_description
+                          * Env.t * Errortrace.Moregen.t option
   | Type_declarations of Ident.t * type_declaration
         * type_declaration * Includecore.type_mismatch
   | Extension_constructors of Ident.t * extension_constructor
@@ -75,8 +76,9 @@ let value_descriptions ~loc env ~mark cxt subst id vd1 vd2 =
   let vd2 = Subst.value_description subst vd2 in
   try
     Includecore.value_descriptions ~loc env (Ident.name id) vd1 vd2
-  with Includecore.Dont_match ->
-    raise(Error[cxt, env, Value_descriptions(id, vd1, vd2)])
+  with
+  | Includecore.Dont_match trace ->
+      raise(Error[cxt, env, Value_descriptions(id, vd1, vd2, env, trace)])
 
 (* Inclusion between type declarations *)
 
@@ -594,13 +596,22 @@ let include_err ppf = function
       fprintf ppf "The %s `%a' is required but not provided"
         kind Printtyp.ident id;
       show_loc "Expected declaration" ppf loc
-  | Value_descriptions(id, d1, d2) ->
+  | Value_descriptions(id, d1, d2, env, t) ->
       fprintf ppf
         "@[<hv 2>Values do not match:@ %a@;<1 -2>is not included in@ %a@]"
         !Oprint.out_sig_item (Printtyp.tree_of_value_description id d1)
         !Oprint.out_sig_item (Printtyp.tree_of_value_description id d2);
+      begin
+        match t with
+        | None -> ()
+        | Some trace ->
+            fprintf ppf "@ ";
+            Printtyp.report_moregen_error ppf env trace
+              (function ppf -> fprintf ppf "Type")
+              (function ppf -> fprintf ppf "do not match with")
+      end;
       show_locs ppf (d1.val_loc, d2.val_loc)
-  | Type_declarations(id, d1, d2, err) ->
+    | Type_declarations(id, d1, d2, err) ->
       fprintf ppf "@[<v>@[<hv>%s:@;<1 2>%a@ %s@;<1 2>%a@]%a%a@]"
         "Type declarations do not match"
         !Oprint.out_sig_item

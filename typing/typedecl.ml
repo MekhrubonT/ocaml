@@ -728,7 +728,9 @@ let check_well_founded env loc path to_check ty =
           let ty0 = if TypeSet.is_empty parents then ty else ty0 in
           check ty0 (TypeSet.add ty parents) ty'
         with
-          Ctype.Cannot_expand -> may raise arg_exn
+        | Ctype.Cannot_expand -> may raise arg_exn
+        | Ctype.Escape {kind; context} ->
+            raise (Ctype.Unify [Escape {kind; context}])
         end
     | _ -> may raise arg_exn
   in
