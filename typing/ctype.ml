@@ -3383,7 +3383,7 @@ let rec eqtype rename type_pairs subst env t1 t2 =
               end
           | (Tunivar _, Tunivar _) ->
               begin try
-                unify_univar t1' t2' !univar_pairs (* Unify error *)
+                unify_univar t1' t2' !univar_pairs
                 with Unify _ -> raise (Equality [])
               end
           | (_, _) ->
@@ -3415,18 +3415,18 @@ and eqtype_fields rename type_pairs subst env ty1 ty2 =
   | ((n, _, _)::_, _) -> raise (Equality [Obj(Missing_field (Second, n))])
   | (_, (n, _, _)::_) -> raise (Equality [Obj(Missing_field (First, n))])
   | [], [] ->
-    List.iter
-      (function (n, k1, t1, k2, t2) ->
-         eqtype_kind k1 k2;
-         try
-           eqtype rename type_pairs subst env t1 t2;
-         with Equality trace ->
-           let r = Equality.diff
-                     (newty (Tfield(n, k1, t1, rest2)))
-                     (newty (Tfield(n, k2, t2, rest2))) in
-           let e = Equality.incompatible_fields n t1 t2 in
-           raise ( Equality (r :: e :: trace ) ))
-      pairs
+      List.iter
+        (function (n, k1, t1, k2, t2) ->
+           eqtype_kind k1 k2;
+           try
+             eqtype rename type_pairs subst env t1 t2;
+           with Equality trace ->
+             let r = Equality.diff
+                       (newty (Tfield(n, k1, t1, rest2)))
+                       (newty (Tfield(n, k2, t2, rest2))) in
+             let e = Equality.incompatible_fields n t1 t2 in
+             raise ( Equality (r :: e :: trace ) ))
+        pairs
 
 and eqtype_kind k1 k2 =
   let k1 = field_kind_repr k1 in
@@ -3563,8 +3563,8 @@ let rec moregen_clty trace type_pairs env cty1 cty2 =
              begin try moregen true type_pairs env t1 t2 with Unify trace ->
                let expanded_trace = expand_unification_trace env trace in
                raise (Failure [CM_Meth_type_mismatch (lab, env, expanded_trace)])
-           end)
-        pairs;
+             end)
+          pairs;
       Vars.iter
         (fun lab (_mut, _v, ty) ->
            let (_mut', _v', ty') = Vars.find lab sign1.csig_vars in
@@ -4203,7 +4203,8 @@ and subtype_row env trace row1 row2 cstrs =
   | Tunivar _, Tunivar _
     when row1.row_closed = row2.row_closed && r1 = [] && r2 = [] ->
       let cstrs =
-        subtype_rec env (Unification.diff more1 more2::trace) more1 more2 cstrs in
+        subtype_rec env (Unification.diff more1 more2::trace) more1 more2 cstrs
+      in
       List.fold_left
         (fun cstrs (_,f1,f2) ->
           match row_field_repr f1, row_field_repr f2 with

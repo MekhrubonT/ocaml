@@ -79,7 +79,6 @@ module Equality: sig
   type obj =
     | Missing_field of position * string
     | Abstract_row of position
-    (* | Self_cannot_be_closed *)
 
   type 'a elt =
     | Diff of 'a diff
