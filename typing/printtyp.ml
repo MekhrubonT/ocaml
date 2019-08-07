@@ -1726,6 +1726,7 @@ let type_expansion ppf = function
 module Unification = Errortrace.Unification
 module Equality = Errortrace.Equality
 module Moregen = Errortrace.Moregen
+module Subtype = Errortrace.Subtype
 
 let trees_of_trace = List.map (Errortrace.map_diff trees_of_type_expansion)
 
@@ -1781,6 +1782,9 @@ let equality_printing_status  = function
 let moregen_printing_status  = function
   | Moregen.Diff d -> diff_printing_status d
   | _ -> Keep
+let subtype_printing_status  = function
+  | Subtype.Diff d -> diff_printing_status d
+  (* | _ -> Keep *)
 
 (** Flatten the trace and remove elements that are always discarded
     during printing *)
@@ -1813,6 +1817,9 @@ let prepare_equality_trace f tr =
 let prepare_moregen_trace f tr =
   prepare_trace (fun _ -> false) moregen_printing_status
     (Moregen.flatten f tr)
+let prepare_subtype_trace f tr =
+  prepare_trace (fun _ -> false) subtype_printing_status
+    (Subtype.flatten f tr)
 
 (** Keep elements that are not [Diff _ ] and take the decision
     for the last element, require a prepared trace *)
@@ -2211,6 +2218,27 @@ let report_moregen_error ppf env tr
     ~error:true
 ;;
 
+let subtype_trace filter_trace fst keep_last txt ppf tr =
+  print_labels := not !Clflags.classic;
+  try match tr with
+    | elt :: tr' ->
+      let elt = match elt with
+        | Subtype.Diff diff ->
+          [Errortrace.map_diff trees_of_type_expansion diff]
+          (* | _ -> [] in *)
+      in
+      let tr =
+        trees_of_trace
+        @@ List.map (Errortrace.map_diff prepare_expansion)
+        @@ filter_trace keep_last tr' in
+      if fst then trace fst txt ppf (elt @ tr)
+      else trace fst txt ppf tr;
+      print_labels := true
+    | _ -> ()
+  with exn ->
+    print_labels := true;
+    raise exn
+
 (** [trace] requires the trace to be prepared *)
 let trace fst keep_last txt ppf tr =
   print_labels := not !Clflags.classic;
@@ -2219,7 +2247,8 @@ let trace fst keep_last txt ppf tr =
         let elt = match elt with
           | Unification.Diff diff ->
             [Errortrace.map_diff trees_of_type_expansion diff]
-          | _ -> [] in
+          | _ -> []
+            in
         let tr =
           trees_of_trace
           @@ List.map (Errortrace.map_diff prepare_expansion)
@@ -2233,10 +2262,19 @@ let trace fst keep_last txt ppf tr =
     raise exn
 
 let report_subtyping_error ppf env tr1 txt1 tr2 =
+  let rec subtype_filter_trace keep_last = function
+    | [] -> []
+    | [Subtype.Diff d as elt]
+      when subtype_printing_status elt = Optional_refinement ->
+        if keep_last then [d] else []
+    | Subtype.Diff d :: rem -> d :: subtype_filter_trace keep_last rem
+    (* | _ :: rem -> subtype_filter_trace keep_last rem *)
+  in
+
   wrap_printing_env ~error:true env (fun () ->
     reset ();
     let tr1 =
-      prepare_unification_trace (fun t t' -> prepare_expansion (t, t')) tr1
+      prepare_subtype_trace (fun t t' -> prepare_expansion (t, t')) tr1
     in
     let tr2 =
       prepare_unification_trace (fun t t' -> prepare_expansion (t, t')) tr2
@@ -2244,7 +2282,7 @@ let report_subtyping_error ppf env tr1 txt1 tr2 =
     let keep_first = match tr2 with
       | [Obj _ | Variant _ | Escape _ ] | [] -> true
       | _ -> false in
-    fprintf ppf "@[<v>%a" (trace true keep_first txt1) tr1;
+    fprintf ppf "@[<v>%a" (subtype_trace subtype_filter_trace true keep_first txt1) tr1;
     if tr2 = [] then fprintf ppf "@]" else
     let mis = unification_mismatch (dprintf "Within this type") env tr2 in
     fprintf ppf "%a%t%t@]"

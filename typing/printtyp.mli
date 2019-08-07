@@ -149,7 +149,7 @@ val report_equality_error:
     (formatter -> unit) -> (formatter -> unit) ->
     unit
 val report_subtyping_error:
-    formatter -> Env.t -> Errortrace.Unification.t -> string
+    formatter -> Env.t -> Errortrace.Subtype.t -> string
     -> Errortrace.Unification.t -> unit
 val report_ambiguous_type_error:
     formatter -> Env.t -> (Path.t * Path.t) -> (Path.t * Path.t) list ->

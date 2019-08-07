@@ -138,3 +138,18 @@ module Moregen : sig
   val rec_occur :  type_expr -> type_expr -> exn
   val incompatible_fields : string -> type_expr -> type_expr -> desc elt
 end
+
+module Subtype : sig
+  type 'a elt =
+    | Diff of 'a diff
+
+  type t = desc elt list
+
+  val diff: type_expr -> type_expr -> desc elt
+
+  val map : (desc -> desc) -> desc elt list -> desc elt list
+
+  val flatten: (type_expr -> type_expr -> 'a) -> t -> 'a elt list
+
+  exception Subtype of t * Unification.t
+end

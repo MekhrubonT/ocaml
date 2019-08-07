@@ -159,3 +159,20 @@ module Moregen = struct
     let incompatible_fields name got expected =
       Incompatible_fields {name; diff={got; expected} }
 end
+
+module Subtype = struct
+  type 'a elt =
+    | Diff of 'a diff
+
+  type t = desc elt list
+
+  let diff got expected = Diff (map_diff short {got;expected})
+
+  let map_elt f = function
+    | Diff x -> Diff (map_diff f x)
+  let map f = List.map (map_elt f)
+
+  let flatten f = map (flatten_desc f)
+
+  exception Subtype of t * Unification.t
+end
