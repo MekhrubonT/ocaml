@@ -1784,7 +1784,6 @@ let moregen_printing_status  = function
   | _ -> Keep
 let subtype_printing_status  = function
   | Subtype.Diff d -> diff_printing_status d
-  (* | _ -> Keep *)
 
 (** Flatten the trace and remove elements that are always discarded
     during printing *)
@@ -2218,57 +2217,38 @@ let report_moregen_error ppf env tr
     ~error:true
 ;;
 
-let subtype_trace filter_trace fst keep_last txt ppf tr =
-  print_labels := not !Clflags.classic;
-  try match tr with
-    | elt :: tr' ->
-      let elt = match elt with
-        | Subtype.Diff diff ->
-          [Errortrace.map_diff trees_of_type_expansion diff]
-          (* | _ -> [] in *)
-      in
-      let tr =
-        trees_of_trace
-        @@ List.map (Errortrace.map_diff prepare_expansion)
-        @@ filter_trace keep_last tr' in
-      if fst then trace fst txt ppf (elt @ tr)
-      else trace fst txt ppf tr;
-      print_labels := true
-    | _ -> ()
-  with exn ->
-    print_labels := true;
-    raise exn
-
-(** [trace] requires the trace to be prepared *)
-let trace fst keep_last txt ppf tr =
-  print_labels := not !Clflags.classic;
-  try match tr with
-    | elt :: tr' ->
-        let elt = match elt with
-          | Unification.Diff diff ->
-            [Errortrace.map_diff trees_of_type_expansion diff]
-          | _ -> []
-            in
-        let tr =
-          trees_of_trace
-          @@ List.map (Errortrace.map_diff prepare_expansion)
-          @@ filter_trace keep_last tr' in
-      if fst then trace fst txt ppf (elt @ tr)
-      else trace fst txt ppf tr;
-      print_labels := true
-  | _ -> ()
-  with exn ->
-    print_labels := true;
-    raise exn
-
 let report_subtyping_error ppf env tr1 txt1 tr2 =
+  let trace filter_trace map_diff fst keep_last txt ppf tr =
+    print_labels := not !Clflags.classic;
+    try match tr with
+      | elt :: tr' ->
+          let elt = map_diff elt in
+          let tr =
+            trees_of_trace
+            @@ List.map (Errortrace.map_diff prepare_expansion)
+            @@ filter_trace keep_last tr' in
+          if fst then trace fst txt ppf (elt @ tr)
+          else trace fst txt ppf tr;
+          print_labels := true
+      | _ -> ()
+    with exn ->
+      print_labels := true;
+      raise exn
+  in
   let rec subtype_filter_trace keep_last = function
     | [] -> []
     | [Subtype.Diff d as elt]
       when subtype_printing_status elt = Optional_refinement ->
         if keep_last then [d] else []
     | Subtype.Diff d :: rem -> d :: subtype_filter_trace keep_last rem
-    (* | _ :: rem -> subtype_filter_trace keep_last rem *)
+  in
+  let unification_map_diff elt = match elt with
+    | Unification.Diff diff ->
+      [Errortrace.map_diff trees_of_type_expansion diff]
+    | _ -> []
+  in
+  let subtype_map_diff elt = match elt with
+    | Subtype.Diff diff -> [Errortrace.map_diff trees_of_type_expansion diff]
   in
 
   wrap_printing_env ~error:true env (fun () ->
@@ -2282,11 +2262,13 @@ let report_subtyping_error ppf env tr1 txt1 tr2 =
     let keep_first = match tr2 with
       | [Obj _ | Variant _ | Escape _ ] | [] -> true
       | _ -> false in
-    fprintf ppf "@[<v>%a" (subtype_trace subtype_filter_trace true keep_first txt1) tr1;
+    fprintf ppf "@[<v>%a"
+      (trace subtype_filter_trace subtype_map_diff true keep_first txt1) tr1;
     if tr2 = [] then fprintf ppf "@]" else
     let mis = unification_mismatch (dprintf "Within this type") env tr2 in
     fprintf ppf "%a%t%t@]"
-      (trace false (mis = None) "is not compatible with type") tr2
+      (trace filter_trace unification_map_diff false (mis = None)
+         "is not compatible with type") tr2
       (explain mis)
       Conflicts.print
   )

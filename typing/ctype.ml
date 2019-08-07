@@ -4141,6 +4141,10 @@ let subtypes = TypePairs.create 17
 let subtype_error env trace =
   raise (Subtype (expand_subtype_trace env (List.rev trace), []))
 
+let fail_if_escape f =
+  try f ()
+  with Escape _ -> assert false
+
 let rec subtype_rec env trace t1 t2 cstrs =
   let t1 = repr t1 in
   let t2 = repr t2 in
@@ -4164,10 +4168,12 @@ let rec subtype_rec env trace t1 t2 cstrs =
         cstrs
     | (Tconstr(p1, _tl1, _abbrev1), _)
       when generic_abbrev env p1 && safe_abbrev env t1 ->
-        subtype_rec env trace (expand_abbrev env t1) t2 cstrs (* ... *)
+        subtype_rec env trace
+          (fail_if_escape (fun () -> expand_abbrev env t1)) t2 cstrs
     | (_, Tconstr(p2, _tl2, _abbrev2))
       when generic_abbrev env p2 && safe_abbrev env t2 ->
-        subtype_rec env trace t1 (expand_abbrev env t2) cstrs
+        subtype_rec env trace t1
+          (fail_if_escape (fun () -> expand_abbrev env t2)) cstrs
     | (Tconstr(p1, tl1, _), Tconstr(p2, tl2, _)) when Path.same p1 p2 ->
         begin try
           let decl = Env.find_type p1 env in
@@ -4180,14 +4186,16 @@ let rec subtype_rec env trace t1 t2 cstrs =
                    newty2 t2.level (Ttuple[t2]), !univar_pairs) :: cstrs
                 else subtype_rec env (Subtype.diff t1 t2::trace) t1 t2 cstrs
               else
-                if cn then subtype_rec env (Subtype.diff t2 t1::trace) t2 t1 cstrs
+                if cn
+                then subtype_rec env (Subtype.diff t2 t1::trace) t2 t1 cstrs
                 else cstrs)
             cstrs decl.type_variance (List.combine tl1 tl2)
         with Not_found ->
           (trace, t1, t2, !univar_pairs)::cstrs
         end
     | (Tconstr(p1, _, _), _) when generic_private_abbrev env p1 ->
-        subtype_rec env trace (expand_abbrev_opt env t1) t2 cstrs
+        subtype_rec env trace
+          (fail_if_escape (fun () -> expand_abbrev_opt env t1)) t2 cstrs
 (*  | (_, Tconstr(p2, _, _)) when generic_private_abbrev false env p2 ->
         subtype_rec env trace t1 (expand_abbrev_opt env t2) cstrs *)
     | (Tobject (f1, _), Tobject (f2, _))

@@ -127,9 +127,6 @@ val tree_of_cltype_declaration:
 val cltype_declaration: Ident.t -> formatter -> class_type_declaration -> unit
 val type_expansion: type_expr -> Format.formatter -> type_expr -> unit
 val prepare_expansion: type_expr * type_expr -> type_expr * type_expr
-val trace:
-  bool -> bool-> string -> formatter
-  -> (type_expr * type_expr) Errortrace.Unification.elt list -> unit
 val report_unification_error:
     formatter -> Env.t ->
     Errortrace.Unification.t ->
