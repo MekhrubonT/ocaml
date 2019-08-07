@@ -1790,7 +1790,6 @@ let prepare_trace drop printing_status tr =
   in
   prepare_trace_helper tr
 
-
 let prepare_unification_trace f tr =
   prepare_trace (fun _ -> false) unification_printing_status
     (Unification.flatten f tr)
@@ -1879,17 +1878,16 @@ let print_pos ppf = function
   | Errortrace.First -> fprintf ppf "first"
   | Errortrace.Second -> fprintf ppf "second"
 
-
 let unification_explanation intro prev env q =
   let explain_variant = function
     | Unification.No_intersection ->
         Some(dprintf "@,These two variant types have no intersection")
-    | Unification.No_tags(pos,fields) -> Some(
-        dprintf
-          "@,@[The %a variant type does not allow tag(s)@ @[<hov>%a@]@]"
-          print_pos pos
-          print_tags fields
-      )
+    | Unification.No_tags(pos,fields) ->
+        Some(
+          dprintf
+            "@,@[The %a variant type does not allow tag(s)@ @[<hov>%a@]@]"
+            print_pos pos
+            print_tags fields)
     | Unification.Incompatible_types_for s ->
         Some(dprintf "@,Types for tag `%s are incompatible" s)
   in
@@ -1961,7 +1959,6 @@ let mismatch explanation intro env trace =
       | None -> mismatch intro env rem in
   mismatch intro env (List.rev trace)
 
-
 let unification_mismatch = mismatch unification_explanation
 
 let explain_equality _intro _prev env q =
@@ -1996,7 +1993,6 @@ let explain_equality _intro _prev env q =
   | Equality.Variant v -> explain_variant v
   | Equality.Obj o -> explain_object o
 
-
 let equality_mismatch = mismatch explain_equality
 
 let explain mis ppf =
@@ -2016,7 +2012,6 @@ let warn_on_missing_def env ppf t =
            in path.@]" path p
     end
   | _ -> ()
-
 
 let prepare_expansion_head empty_tr = function
   | Unification.Diff d ->
@@ -2075,7 +2070,6 @@ let handle_trace
       print_labels := true;
       raise exn
 
-
 let unification_error env tr txt1 ppf txt2 ty_expect_explanation =
   reset ();
   let tr = prepare_unification_trace (fun t t' -> t, hide_variant_name t') tr in
@@ -2127,7 +2121,7 @@ let trace fst keep_last txt ppf tr =
     | elt :: tr' ->
         let elt = match elt with
           | Unification.Diff diff ->
-            [Errortrace.map_diff trees_of_type_expansion diff]
+              [Errortrace.map_diff trees_of_type_expansion diff]
           | _ -> [] in
         let tr =
           trees_of_trace

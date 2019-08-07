@@ -121,13 +121,9 @@ let report_label_mismatch first second ppf err =
   let pr fmt = Format.fprintf ppf fmt in
   match (err : label_mismatch) with
   | Type (env, trace) ->
-    Printtyp.report_equality_error ppf env trace
-      (function _ ->
-         pr "Type"
-      )
-      (function _ ->
-         pr "is not equal to type"
-      )
+      Printtyp.report_equality_error ppf env trace
+        (function _ -> pr "Type")
+        (function _ -> pr "is not equal to type")
   | Mutable is_second ->
       pr "%s is mutable and %s is not."
         (String.capitalize_ascii (if is_second then second else first))
@@ -158,13 +154,9 @@ let report_constructor_mismatch first second decl ppf err =
   let pr fmt  = Format.fprintf ppf fmt in
   match (err : constructor_mismatch) with
   | Type (env, unification_trace) ->
-    Printtyp.report_equality_error ppf env unification_trace
-      (function _ ->
-         pr "@[Type@]"
-      )
-      (function _ ->
-         pr "@[is not equal to type@]"
-      )
+      Printtyp.report_equality_error ppf env unification_trace
+        (function _ -> pr "@[Type@]")
+        (function _ -> pr "@[is not equal to type@]")
   | Arity -> pr "They have different arities."
   | Record err -> report_record_mismatch first second decl ppf err
   | Kind is_second ->
@@ -212,24 +204,13 @@ let report_type_mismatch0 first second decl ppf err =
   | Kind -> pr "Their kinds differ."
   | Constraint (env, trace) ->
       Printtyp.report_equality_error ppf env trace
-        (function _ ->
-           pr "Constraints are different:"
-        )
-        (function _ ->
-           pr "is different from"
-        )
+        (function _ -> pr "Constraints are different:")
+        (function _ -> pr "is different from")
   | Manifest -> ()
   | Manifest_type (env, trace) ->
       Printtyp.report_equality_error ppf env trace
-        (function _ ->
-           pr "Type"
-        )
-        (function _ ->
-           pr "is not equal to type"
-        )
-  (* | Var_missing_constructor -> pr "Miss constr" *)
-  (* | Var_extra_constructor -> pr "Extra constr" *)
-  (* | Obj_missing_field _f -> pr "Miss field" *)
+        (function _ -> pr "Type")
+        (function _ -> pr "is not equal to type")
   | Variance -> pr "Their variances do not agree."
   | Record_mismatch err -> report_record_mismatch first second decl ppf err
   | Variant_mismatch err -> report_variant_mismatch first second decl ppf err
