@@ -1882,9 +1882,10 @@ let print_pos ppf = function
   | Errortrace.Second -> fprintf ppf "second"
 
 let explain_escape pre = function
-  | Errortrace.Univ u ->  Some(
+  | Errortrace.Univ u -> Some(
       dprintf "%t@,The universal variable %a would escape its scope"
-        pre type_expr u)
+        pre type_expr u
+    )
   | Errortrace.Constructor p -> Some(
       dprintf
         "%t@,@[The type constructor@;<1 2>%a@ would escape its scope@]"
@@ -1941,8 +1942,8 @@ let unification_explanation intro prev env q =
         | None -> match kind, prev with
           | Errortrace.Univ _,
             Some(Unification.Incompatible_fields {name; diff}) ->
-            dprintf "@,@[The method %s has type@ %a,@ \
-                     but the expected method type was@ %a@]" name
+              dprintf "@,@[The method %s has type@ %a,@ \
+                       but the expected method type was@ %a@]" name
               type_expr diff.got type_expr diff.expected
           | _ -> ignore
       in
@@ -1999,7 +2000,6 @@ let explain_equality intro prev env q =
       Some (dprintf "@,Types for method %s are incompatible" name)
   | Equality.Variant v -> explain_variant v
   | Equality.Obj o -> explain_object o
-
   | Equality.Escape {kind;context} ->
       let pre =
         match context with
@@ -2008,7 +2008,7 @@ let explain_equality intro prev env q =
           | Errortrace.Univ _,
             Some(Equality.Incompatible_fields {name; diff}) ->
               dprintf "@,@[The method %s has type@ %a,@ \
-                   but the expected method type was@ %a@]" name
+                       but the expected method type was@ %a@]" name
               type_expr diff.got type_expr diff.expected
           | _ -> ignore
       in

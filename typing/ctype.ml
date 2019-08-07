@@ -2475,7 +2475,7 @@ and unify2 env t1 t2 =
   in
   let lv = min t1'.level t2'.level in
   let scope = max t1'.scope t2'.scope in
-  unify_wrap_escape (fun() ->
+  unify_wrap_escape (fun () ->
     update_level !env lv t2;
     update_level !env lv t1;
     update_scope scope t2;
@@ -2712,7 +2712,7 @@ and unify_fields env ty1 ty2 =          (* Optimization *)
         unify_kind k1 k2;
         try
           if !trace_gadt_instances then
-            unify_wrap_escape (fun() ->
+            unify_wrap_escape (fun () ->
               update_level !env va.level t1;
               update_scope va.scope t1);
           unify env t1 t2
@@ -2804,7 +2804,7 @@ and unify_row env row1 row2 =
       if is_Tvar rm then link_type rm more else unify env rm more
     else
       let ty = newgenty (Tvariant {row0 with row_fields = rest}) in
-      unify_wrap_escape (fun() ->
+      unify_wrap_escape (fun () ->
         update_level !env rm.level ty;
         update_scope rm.scope ty);
       link_type rm ty
@@ -2878,7 +2878,7 @@ and unify_row_field env fixed1 fixed2 more l f1 f2 =
       (* Is this handling of levels really principal? *)
       List.iter (fun ty ->
         let rm = repr more in
-        unify_wrap_escape (fun() ->
+        unify_wrap_escape (fun () ->
           update_level !env rm.level ty;
           update_scope rm.scope ty);
       ) (tl1' @ tl2');
@@ -2892,7 +2892,7 @@ and unify_row_field env fixed1 fixed2 more l f1 f2 =
   | Reither(false, tl, _, e1), Rpresent(Some t2) when not fixed1 ->
       set_row_field e1 f2;
       let rm = repr more in
-      unify_wrap_escape (fun() ->
+      unify_wrap_escape (fun () ->
         update_level !env rm.level t2;
         update_scope rm.scope t2);
       (try List.iter (fun t1 -> unify env t1 t2) tl
@@ -2900,7 +2900,7 @@ and unify_row_field env fixed1 fixed2 more l f1 f2 =
   | Rpresent(Some t1), Reither(false, tl, _, e2) when not fixed2 ->
       set_row_field e2 f1;
       let rm = repr more in
-      unify_wrap_escape (fun() ->
+      unify_wrap_escape (fun () ->
         update_level !env rm.level t1;
         update_scope rm.scope t1);
       (try List.iter (unify env t1) tl
@@ -2943,7 +2943,7 @@ let unify_var env t1 t2 =
   | Tvar _, _ ->
       let reset_tracing = check_trace_gadt_instances env in
       begin try
-        unify_wrap_escape (fun() ->
+        unify_wrap_escape (fun () ->
           occur env t1 t2;
           update_level env t1.level t2;
           update_scope t1.scope t2);
@@ -3034,7 +3034,7 @@ let filter_method env name priv ty =
     Tvar _ ->
       let ty1 = newvar () in
       let ty' = newobj ty1 in
-      unify_wrap_escape (fun() ->
+      unify_wrap_escape (fun () ->
         update_level env ty.level ty';
         update_scope ty.scope ty');
       link_type ty ty';
@@ -3102,7 +3102,7 @@ let rec moregen inst_nongen type_pairs env t1 t2 =
     match (t1.desc, t2.desc) with
       (Tvar _, _) when may_instantiate inst_nongen t1 ->
         moregen_occur env t1.level t2;
-        unify_wrap_escape (fun() ->
+        unify_wrap_escape (fun () ->
           update_scope t1.scope t2;
           occur env t1 t2);
         link_type t1 t2
@@ -3121,7 +3121,7 @@ let rec moregen inst_nongen type_pairs env t1 t2 =
           match (t1'.desc, t2'.desc) with
             (Tvar _, _) when may_instantiate inst_nongen t1' ->
               moregen_occur env t1'.level t2;
-              unify_wrap_escape (fun() -> update_scope t1'.scope t2);
+              unify_wrap_escape (fun () -> update_scope t1'.scope t2);
               link_type t1' t2
           | (Tarrow (l1, t1, u1, _), Tarrow (l2, t2, u2, _)) when l1 = l2
             || !Clflags.classic && not (is_optional l1 || is_optional l2) ->
@@ -3215,7 +3215,7 @@ and moregen_row inst_nongen type_pairs env row1 row2 =
         newgenty (Tvariant {row2 with row_fields = r2; row_name = None})
       in
       moregen_occur env rm1.level ext;
-      unify_wrap_escape (fun() -> update_scope rm1.scope ext);
+      unify_wrap_escape (fun () -> update_scope rm1.scope ext);
       link_type rm1 ext
   | Tconstr _, Tconstr _ ->
       moregen inst_nongen type_pairs env rm1 rm2
